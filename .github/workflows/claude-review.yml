@@ -1,0 +1,46 @@
+name: Claude Code PR Review
+
+on:
+  # 1. PR 생성(Open) 및 업데이트 시 자동 트리거
+  pull_request:
+    types: [opened, synchronize]
+  
+  # 2. 이슈/PR 코멘트 작성 시 트리거 (@claude 멘션용)
+  issue_comment:
+    types: [created]
+
+jobs:
+  claude-code-review:
+    # 봇의 무한 루프를 방지하고, 코멘트는 '@claude'가 포함되었을 때만 실행되도록 조건 설정
+    if: >
+      github.event_name == 'pull_request' || 
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude'))
+    
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 코드 리뷰를 위해 전체 히스토리 가져오기
+
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@v1
+        env:
+          # Claude가 GitHub CLI(gh)를 사용하여 PR 상태를 변경할 수 있도록 토큰 주입
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          
+          # Claude에게 부여할 리뷰 지시사항 (Draft -> 리뷰 -> Open 프로세스)
+          prompt: |
+            You are an expert code reviewer. Please follow these steps for this PR:
+            1. Perform a thorough self-review of the code changes.
+            2. Leave inline (line-by-line) comments on the PR for any improvements, bugs, or suggestions.
+            3. Once you have completed the review and left your comments, use the GitHub CLI to mark this draft PR as ready for review by running the command: `gh pr ready ${{ github.event.pull_request.number }}`
+            4. If the PR is already open (not a draft), just finish the review.
