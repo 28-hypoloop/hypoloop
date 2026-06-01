@@ -2,7 +2,7 @@ name: Claude Code
 
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review]
+    types: [opened]
   issue_comment:
     types: [created]
   pull_request_review_comment:
@@ -13,85 +13,13 @@ on:
     types: [submitted]
 
 jobs:
-  # ─────────────────────────────────────────
-  # Job 1: PR 생성 시 Draft 강제 변환
-  # ─────────────────────────────────────────
-  convert-to-draft:
+  claude:
     if: |
-      github.event_name == 'pull_request' &&
-      github.event.action == 'opened' &&
-      github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-    steps:
-      - name: Convert PR to Draft
-        run: gh pr edit ${{ github.event.pull_request.number }} --draft
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ─────────────────────────────────────────
-  # Job 2: Draft PR 자동 리뷰 후 Open
-  # ─────────────────────────────────────────
-  claude-auto-review:
-    if: |
-      github.event_name == 'pull_request' &&
-      (
-        (github.event.action == 'opened' && github.event.pull_request.draft == true) ||
-        github.event.action == 'synchronize'
-      )
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      id-token: write
-      actions: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # 전체 diff 분석을 위해 0 권장
-
-      - name: Claude Self-Review
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          direct_prompt: |
-            Please thoroughly review all changes in this PR.
-          
-            For each issue found, leave an inline comment on the exact file and line where the problem occurs. Cover the following:
-            - Bugs and logic errors
-            - Security vulnerabilities
-            - Performance issues
-            - Code readability and naming conventions
-            - Missing error handling and edge cases
-            - Test coverage
-          
-            After all inline comments, post a PR summary comment that includes:
-            - Overall assessment
-            - List of major issues
-            - Suggestions for improvement
-
-      - name: Mark PR as Ready for Review
-        # 리뷰가 성공적으로 완료된 경우에만 open
-        if: success()
-        run: gh pr ready ${{ github.event.pull_request.number }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ─────────────────────────────────────────
-  # Job 3: @claude 멘션 응답 (기존 기능)
-  # ─────────────────────────────────────────
-  claude-mention:
-    if: |
+      (github.event_name == 'pull_request' && github.event.action == 'opened') ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (
-        contains(github.event.issue.body, '@claude') ||
-        contains(github.event.issue.title, '@claude')
-      ))
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -101,19 +29,11 @@ jobs:
       actions: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
-
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # trigger_phrase: "/claude"
-          # assignee_trigger: "claude-bot"
-          # claude_args: |
-          #   --model claude-opus-4-1-20250805
-          #   --max-turns 10
-          #   --allowedTools "Bash(npm install),Bash(npm run build),Bash(npm run test:*),Bash(npm run lint:*)"
-          #   --system-prompt "Follow our coding standards. Ensure all new code has tests."
