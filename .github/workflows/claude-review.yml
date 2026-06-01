@@ -1,46 +1,119 @@
-name: Claude Code PR Review
+name: Claude Code
 
 on:
-  # 1. PR 생성(Open) 및 업데이트 시 자동 트리거
   pull_request:
-    types: [opened, synchronize]
-  
-  # 2. 이슈/PR 코멘트 작성 시 트리거 (@claude 멘션용)
+    types: [opened, synchronize, ready_for_review]
   issue_comment:
     types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
 
 jobs:
-  claude-code-review:
-    # 봇의 무한 루프를 방지하고, 코멘트는 '@claude'가 포함되었을 때만 실행되도록 조건 설정
-    if: >
-      github.event_name == 'pull_request' || 
-      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude'))
-    
+  # ─────────────────────────────────────────
+  # Job 1: PR 생성 시 Draft 강제 변환
+  # ─────────────────────────────────────────
+  convert-to-draft:
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action == 'opened' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Convert PR to Draft
+        run: gh pr edit ${{ github.event.pull_request.number }} --draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─────────────────────────────────────────
+  # Job 2: Draft PR 자동 리뷰 후 Open
+  # ─────────────────────────────────────────
+  claude-auto-review:
+    if: |
+      github.event_name == 'pull_request' &&
+      (
+        (github.event.action == 'opened' && github.event.pull_request.draft == true) ||
+        github.event.action == 'synchronize'
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
       issues: write
-
+      id-token: write
+      actions: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # 코드 리뷰를 위해 전체 히스토리 가져오기
+          fetch-depth: 0  # 전체 diff 분석을 위해 0 권장
 
-      - name: Run Claude Code Action
+      - name: Claude Self-Review
         uses: anthropics/claude-code-action@v1
-        env:
-          # Claude가 GitHub CLI(gh)를 사용하여 PR 상태를 변경할 수 있도록 토큰 주입
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          direct_prompt: |
+            Please thoroughly review all changes in this PR.
           
-          # Claude에게 부여할 리뷰 지시사항 (Draft -> 리뷰 -> Open 프로세스)
-          prompt: |
-            You are an expert code reviewer. Please follow these steps for this PR:
-            1. Perform a thorough self-review of the code changes.
-            2. Leave inline (line-by-line) comments on the PR for any improvements, bugs, or suggestions.
-            3. Once you have completed the review and left your comments, use the GitHub CLI to mark this draft PR as ready for review by running the command: `gh pr ready ${{ github.event.pull_request.number }}`
-            4. If the PR is already open (not a draft), just finish the review.
+            For each issue found, leave an inline comment on the exact file and line where the problem occurs. Cover the following:
+            - Bugs and logic errors
+            - Security vulnerabilities
+            - Performance issues
+            - Code readability and naming conventions
+            - Missing error handling and edge cases
+            - Test coverage
+          
+            After all inline comments, post a PR summary comment that includes:
+            - Overall assessment
+            - List of major issues
+            - Suggestions for improvement
+
+      - name: Mark PR as Ready for Review
+        # 리뷰가 성공적으로 완료된 경우에만 open
+        if: success()
+        run: gh pr ready ${{ github.event.pull_request.number }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─────────────────────────────────────────
+  # Job 3: @claude 멘션 응답 (기존 기능)
+  # ─────────────────────────────────────────
+  claude-mention:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (
+        contains(github.event.issue.body, '@claude') ||
+        contains(github.event.issue.title, '@claude')
+      ))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # trigger_phrase: "/claude"
+          # assignee_trigger: "claude-bot"
+          # claude_args: |
+          #   --model claude-opus-4-1-20250805
+          #   --max-turns 10
+          #   --allowedTools "Bash(npm install),Bash(npm run build),Bash(npm run test:*),Bash(npm run lint:*)"
+          #   --system-prompt "Follow our coding standards. Ensure all new code has tests."
