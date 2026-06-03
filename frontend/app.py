@@ -3,13 +3,21 @@ from __future__ import annotations
 
 import streamlit as st
 
-from backend.mock import MockBackend
 from ui import theme, input_form, progress_view, report_viewer
 
 
 def get_backend():
-    """백엔드 주입 지점. 통합 시 MockBackend()를 실제 구현으로 교체."""
-    return MockBackend()
+    """백엔드 주입 지점.
+
+    hypoloop 데이터 계층이 import 가능하면 실제 DataLayerBackend를,
+    아니면 MockBackend로 자동 폴백한다(프론트 단독으로도 실행 가능).
+    """
+    try:
+        from backend.data_layer_backend import DataLayerBackend
+        return DataLayerBackend()
+    except Exception:
+        from backend.mock import MockBackend
+        return MockBackend()
 
 
 def main() -> None:
