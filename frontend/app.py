@@ -14,10 +14,12 @@ def get_backend():
     """
     try:
         from backend.data_layer_backend import DataLayerBackend
-        return DataLayerBackend()
-    except Exception:
+    except ModuleNotFoundError:
+        # hypoloop(백엔드) 미설치 → Mock으로 폴백.
+        # 그 외 에러(어댑터 버그 등)는 숨기지 않고 그대로 드러낸다.
         from backend.mock import MockBackend
         return MockBackend()
+    return DataLayerBackend()
 
 
 def main() -> None:
