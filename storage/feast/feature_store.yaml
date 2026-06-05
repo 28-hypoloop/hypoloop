@@ -1,0 +1,8 @@
+project: hypoloop
+registry: ../data/feast_registry.db
+provider: local
+online_store:
+  type: sqlite
+  path: ../data/feast_online_store.db
+offline_store:
+  type: file
