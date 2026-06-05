@@ -14,9 +14,17 @@ def test_datacard_fields():
 def test_pipeline_input_fields():
     card = DataCard(target_column="y", task_type="regression", description="d")
     inp = PipelineInput(csv_path="/tmp/a.csv", loop_count=3,
-                        data_card=card, llm_instruction="가설")
+                        data_card=card, hypothesis="가설", metric="rmse")
     assert inp.loop_count == 3
-    assert inp.data_card.target_column == "y"
+    assert inp.hypothesis == "가설"
+    assert inp.metric == "rmse"
+
+
+def test_pipeline_input_metric_default():
+    card = DataCard(target_column="y", task_type="regression", description="d")
+    inp = PipelineInput(csv_path="/tmp/a.csv", loop_count=1,
+                        data_card=card, hypothesis="가설")
+    assert inp.metric == ""
 
 
 def test_progress_event_fields():
@@ -41,3 +49,19 @@ def test_pipeline_stages_order():
     assert PIPELINE_STAGES[0] == "계획수립"
     assert "베이스라인" in PIPELINE_STAGES
     assert PIPELINE_STAGES[-1] == "리포트"
+
+
+def test_progress_event_new_fields_default():
+    ev = ProgressEvent(stage="EDA", loop_index=0, status="running", message="m")
+    assert ev.kind == "stage"
+    assert ev.detail == ""
+    assert ev.metric is None
+
+
+def test_progress_event_metric_kind():
+    from backend.interface import MetricRecord
+    m = MetricRecord(loop_index=1, metric_name="accuracy", baseline=0.7, value=0.8)
+    ev = ProgressEvent(stage="튜닝", loop_index=1, status="running",
+                       message="지표", kind="metric", metric=m)
+    assert ev.kind == "metric"
+    assert ev.metric.value == 0.8

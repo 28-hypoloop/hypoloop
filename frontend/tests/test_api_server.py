@@ -9,7 +9,7 @@ INPUT = {
     "csv_path": "sample_data/sample.csv", "loop_count": 2,
     "data_card": {"target_column": "Survived", "task_type": "classification",
                   "description": "t"},
-    "llm_instruction": "가설",
+    "hypothesis": "가설",
 }
 
 

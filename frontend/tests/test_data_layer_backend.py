@@ -29,7 +29,7 @@ def csv_path():
 def make_input(csv_path, loop_count=3, task="classification", target="Survived"):
     card = DataCard(target_column=target, task_type=task, description="t")
     return PipelineInput(csv_path=csv_path, loop_count=loop_count,
-                         data_card=card, llm_instruction="Pclass 영향 가설")
+                         data_card=card, hypothesis="Pclass 영향 가설")
 
 
 def test_satisfies_protocol():

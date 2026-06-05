@@ -25,7 +25,8 @@ class PipelineInput:
     csv_path: str                 # 업로드된 CSV 저장 경로
     loop_count: int               # 성능 개선 루프 횟수
     data_card: DataCard
-    llm_instruction: str          # 가설·목표·평가산식 자유 텍스트
+    hypothesis: str               # 사용자 가설
+    metric: str = ""              # 평가산식(예: accuracy). 자유 텍스트, 선택
 
 
 @dataclass

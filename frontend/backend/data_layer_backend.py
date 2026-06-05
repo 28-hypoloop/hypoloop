@@ -132,8 +132,8 @@ class DataLayerBackend:
         exp = build_experiment_dict(
             name=f"{inp.data_card.target_column}-experiment",
             dataset=inp.csv_path,
-            hypothesis=inp.llm_instruction,
-            metric=metric_name,
+            hypothesis=inp.hypothesis,
+            metric=inp.metric or metric_name,
             params={"loop_count": inp.loop_count,
                     "task_type": inp.data_card.task_type},
         )
@@ -156,7 +156,8 @@ class DataLayerBackend:
             f"| 구분 | {metric_name} |\n|---|---|\n"
             f"| 베이스라인 | {base} |\n| 최종 | {best} |\n"
             f"| 향상폭(Δ) | {delta} |\n\n"
-            f"## 사용자 가설\n\n> {inp.llm_instruction}\n\n"
+            f"## 사용자 가설\n\n> {inp.hypothesis}\n\n"
+            f"## 평가산식\n\n> {inp.metric or '미지정'}\n\n"
             f"> ℹ️ 데이터 적재·실험로그·yml은 실제 백엔드(hypoloop) 기능을 사용했습니다. "
             f"지표 값은 학습 계층(에이전트) 미구현으로 임시값입니다.\n\n"
             f"> ⚠️ 제한된 데이터·환경에서 도출된 결과이므로, "

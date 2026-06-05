@@ -24,6 +24,6 @@ def validate_input(inp: PipelineInput) -> List[str]:
         errors.append(f"태스크 종류가 올바르지 않습니다: {inp.data_card.task_type}")
     if inp.loop_count < 1:
         errors.append("루프 횟수는 1 이상이어야 합니다.")
-    if not inp.llm_instruction.strip():
-        errors.append("언어모델 입력(가설/목표)을 작성해주세요.")
+    if not inp.hypothesis.strip():
+        errors.append("가설을 작성해주세요.")
     return errors

@@ -102,7 +102,8 @@ class MockBackend:
             f"| 구분 | {metric_name} |\n|---|---|\n"
             f"| 베이스라인 | {base} |\n| 최종 | {best} |\n"
             f"| 향상폭(Δ) | {delta} |\n\n"
-            f"## 사용자 가설\n\n> {inp.llm_instruction}\n\n"
+            f"## 사용자 가설\n\n> {inp.hypothesis}\n\n"
+            f"## 평가산식\n\n> {inp.metric or '미지정'}\n\n"
             f"> ⚠️ 제한된 데이터·환경에서 도출된 결과이므로, "
             f"프로덕션 적용 전 반드시 검토가 필요합니다.\n"
         )

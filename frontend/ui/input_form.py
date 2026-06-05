@@ -25,14 +25,32 @@ def infer_task_type(series: pd.Series) -> str:
     return "regression"
 
 
+def column_template(columns) -> str:
+    """CSV 컬럼명으로 데이터 카드 템플릿 생성: 'col : \\n' 한 줄씩."""
+    return "".join(f"{c} : \n" for c in columns)
+
+
+# 태스크별 평가산식 후보(드롭다운)
+_METRICS = {
+    "classification": ["accuracy", "f1", "precision", "recall", "roc_auc"],
+    "regression": ["rmse", "mae", "r2", "mape"],
+}
+METRIC_OTHER = "기타(직접 입력)"
+
+
+def metric_options(task_type: str) -> list:
+    """태스크 종류에 맞는 평가산식 후보 목록."""
+    return list(_METRICS.get(task_type, _METRICS["classification"]))
+
+
 def build_pipeline_input(csv_path: str, loop_count: int, target_column: str,
                          task_type: str, description: str,
-                         llm_instruction: str) -> PipelineInput:
+                         hypothesis: str, metric: str = "") -> PipelineInput:
     """폼 값들을 PipelineInput으로 조립."""
     card = DataCard(target_column=target_column, task_type=task_type,
                     description=description)
     return PipelineInput(csv_path=csv_path, loop_count=loop_count,
-                         data_card=card, llm_instruction=llm_instruction)
+                         data_card=card, hypothesis=hypothesis, metric=metric)
 
 
 def _save_upload(uploaded) -> str:
@@ -89,13 +107,28 @@ def render(backend: PipelineBackend) -> Optional[PipelineInput]:
                              index=0 if default_task == "classification" else 1,
                              horizontal=True)
 
-    description = st.text_area("데이터 카드 — 데이터셋 설명", height=80,
-                               placeholder="예) 타이타닉 승객 정보. 생존 여부 예측.")
-    llm_instruction = st.text_area(
-        "언어모델 입력 — 가설 · 목표 · 평가산식", height=120,
-        placeholder="예) 객실 등급(Pclass)이 생존에 미치는 영향 가설을 반영해 "
-                    "정확도 기준으로 모델을 개선해줘.",
+    # 데이터 카드 — 각 컬럼 설명(업로드 컬럼으로 템플릿 자동 채움)
+    desc_key = "datacard_desc"
+    if st.session_state.get("_desc_cols") != columns:
+        st.session_state["_desc_cols"] = columns
+        st.session_state[desc_key] = column_template(columns)
+    description = st.text_area(
+        "데이터 카드 — 각 컬럼 설명 (컬럼명 : 설명)", key=desc_key, height=200,
+        help="각 컬럼이 무엇인지 한 줄씩 적어주세요. "
+             "예) Survived : 생존 여부 (0=사망, 1=생존)",
     )
+    hypothesis = st.text_area(
+        "가설", height=100,
+        placeholder="예) 객실 등급(Pclass)이 생존에 미치는 영향이 크다.",
+    )
+    metric_choice = st.selectbox(
+        "평가산식 (metric)", metric_options(task_type) + [METRIC_OTHER],
+    )
+    if metric_choice == METRIC_OTHER:
+        metric = st.text_input("평가산식 직접 입력",
+                               placeholder="예) balanced_accuracy")
+    else:
+        metric = metric_choice
     loop_count = st.number_input("루프 횟수", min_value=LOOP_MIN, max_value=LOOP_MAX,
                                  value=LOOP_DEFAULT, step=1)
 
@@ -103,7 +136,7 @@ def render(backend: PipelineBackend) -> Optional[PipelineInput]:
         inp = build_pipeline_input(
             csv_path=csv_path, loop_count=int(loop_count),
             target_column=target_column, task_type=task_type,
-            description=description, llm_instruction=llm_instruction,
+            description=description, hypothesis=hypothesis, metric=metric,
         )
         errors = backend.validate_input(inp)
         if errors:

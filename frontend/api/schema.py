@@ -31,7 +31,8 @@ def input_to_dict(inp: PipelineInput) -> dict:
             "task_type": inp.data_card.task_type,
             "description": inp.data_card.description,
         },
-        "llm_instruction": inp.llm_instruction,
+        "hypothesis": inp.hypothesis,
+        "metric": inp.metric,
     }
 
 
@@ -43,7 +44,8 @@ def input_from_dict(d: dict) -> PipelineInput:
         data_card=DataCard(target_column=dc["target_column"],
                            task_type=dc["task_type"],
                            description=dc.get("description", "")),
-        llm_instruction=d["llm_instruction"],
+        hypothesis=d["hypothesis"],
+        metric=d.get("metric", ""),
     )
 
 

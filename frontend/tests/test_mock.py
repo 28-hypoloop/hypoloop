@@ -24,7 +24,7 @@ def make_input(csv_path, loop_count=2, target="Survived"):
     card = DataCard(target_column=target, task_type="classification",
                     description="테스트")
     return PipelineInput(csv_path=csv_path, loop_count=loop_count,
-                         data_card=card, llm_instruction="가설 검증")
+                         data_card=card, hypothesis="가설 검증")
 
 
 def test_mock_satisfies_protocol():
@@ -82,7 +82,7 @@ def test_final_code_uses_regressor_for_regression(csv_path):
     card = DataCard(target_column="Survived", task_type="regression",
                     description="t")
     inp = PipelineInput(csv_path=csv_path, loop_count=2, data_card=card,
-                        llm_instruction="가설")
+                        hypothesis="가설")
     backend = MockBackend()
     list(backend.run(inp))
     code = backend.get_result().final_code
