@@ -60,6 +60,11 @@ class DataLayerBackend:
         yield ProgressEvent(stage="베이스라인", loop_index=0, status="running",
                             message="CSV를 SQLite에 적재하고 베이스라인 학습 중…")
         n_rows = load_csv(inp.csv_path, _DB_NAME, _TABLE)
+        yield ProgressEvent(stage="베이스라인", loop_index=0, status="running",
+                            message=f"CSV {n_rows}행 적재", kind="log",
+                            detail=f"hypoloop.loader.load_csv → SQLite {_TABLE} {n_rows}행 적재")
+        base_metric = MetricRecord(loop_index=0, metric_name=metric_name,
+                                   baseline=baseline, value=baseline)
         append_experiment_log(
             {"loop_index": 0, "metric_name": metric_name,
              "baseline": baseline, "value": baseline},
@@ -69,9 +74,16 @@ class DataLayerBackend:
         yield ProgressEvent(stage="베이스라인", loop_index=0, status="done",
                             message=f"SQLite 적재 {n_rows}행, "
                                     f"베이스라인 {metric_name}={baseline}")
+        yield ProgressEvent(stage="베이스라인", loop_index=0, status="running",
+                            message=f"베이스라인 {metric_name}={baseline}",
+                            kind="metric", metric=base_metric)
 
         # 개선 루프 (지표 값은 임시 — 학습 계층 미구현)
         for loop in range(1, inp.loop_count + 1):
+            yield ProgressEvent(stage="피처엔지니어링", loop_index=loop,
+                                status="running",
+                                message=f"루프 {loop} 가설/파생변수 생성", kind="llm",
+                                detail=f"루프 {loop}: 오차 분석 기반 가설 생성 및 파생변수 제안")
             for stage in ("피처엔지니어링", "튜닝"):
                 yield ProgressEvent(stage=stage, loop_index=loop, status="running",
                                     message=f"루프 {loop}: {stage} 진행 중…")
@@ -82,11 +94,16 @@ class DataLayerBackend:
                 value = round(min(baseline + 0.04 * loop, 0.95), 4)
             else:
                 value = round(max(baseline - 0.03 * loop, 0.10), 4)
+            loop_metric = MetricRecord(loop_index=loop, metric_name=metric_name,
+                                       baseline=baseline, value=value)
             append_experiment_log(
                 {"loop_index": loop, "metric_name": metric_name,
                  "baseline": baseline, "value": value},
                 _DB_NAME,
             )
+            yield ProgressEvent(stage="튜닝", loop_index=loop, status="running",
+                                message=f"루프 {loop} {metric_name}={value}",
+                                kind="metric", metric=loop_metric)
 
         # 리포트: 실험 yml 실제 생성 (백엔드 writer)
         yield ProgressEvent(stage="리포트", loop_index=inp.loop_count,

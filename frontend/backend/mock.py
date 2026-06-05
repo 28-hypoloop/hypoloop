@@ -30,40 +30,57 @@ class MockBackend:
         baseline = 0.70 if is_clf else 0.50
         metrics: List[MetricRecord] = []
 
-        # 베이스라인까지 단계 진행(loop 0)
-        for stage in PIPELINE_STAGES[:3]:  # 계획수립, EDA, 베이스라인
-            yield ProgressEvent(stage=stage, loop_index=0, status="running",
-                                message=f"{stage} 진행 중...")
+        def stage_evt(stage, loop, status, msg):
+            return ProgressEvent(stage=stage, loop_index=loop, status=status,
+                                 message=msg)
+
+        def info_evt(stage, loop, kind, text):
+            return ProgressEvent(stage=stage, loop_index=loop, status="running",
+                                 message=text, kind=kind, detail=text)
+
+        # 계획수립 / EDA / 베이스라인
+        for stage in PIPELINE_STAGES[:3]:
+            yield stage_evt(stage, 0, "running", f"{stage} 진행 중…")
+            yield info_evt(stage, 0, "llm",
+                           f"Solar API 호출 — {stage} 단계 계획 생성")
             time.sleep(self._step_delay)
-            yield ProgressEvent(stage=stage, loop_index=0, status="done",
-                                message=f"{stage} 완료")
+            yield info_evt(stage, 0, "code",
+                           f"# {stage} 자동 생성 코드 (데모)\nimport pandas as pd\n"
+                           f"df = pd.read_csv('data.csv')")
+            yield stage_evt(stage, 0, "done", f"{stage} 완료")
         metrics.append(MetricRecord(loop_index=0, metric_name=metric_name,
                                     baseline=baseline, value=baseline))
+        yield ProgressEvent(stage="베이스라인", loop_index=0, status="running",
+                            message=f"베이스라인 {metric_name}={baseline}",
+                            kind="metric", metric=metrics[-1])
 
         # 개선 루프
         for loop in range(1, inp.loop_count + 1):
-            for stage in PIPELINE_STAGES[3:5]:  # 피처엔지니어링, 튜닝
-                yield ProgressEvent(stage=stage, loop_index=loop, status="running",
-                                    message=f"루프 {loop}: {stage} 진행 중...")
+            yield info_evt("피처엔지니어링", loop, "llm",
+                           f"Solar API — 루프 {loop} 가설 생성 및 파생변수 제안")
+            for stage in PIPELINE_STAGES[3:5]:
+                yield stage_evt(stage, loop, "running", f"루프 {loop}: {stage} 진행 중…")
                 time.sleep(self._step_delay)
-                yield ProgressEvent(stage=stage, loop_index=loop, status="done",
-                                    message=f"루프 {loop}: {stage} 완료")
-            # 매 루프 가짜 개선(분류는 증가, 회귀는 감소)
+                yield info_evt(stage, loop, "code",
+                               f"# 루프 {loop} {stage} 코드 (데모)\n"
+                               f"model.fit(X_train, y_train)")
+                yield stage_evt(stage, loop, "done", f"루프 {loop}: {stage} 완료")
             if is_clf:
-                value = min(baseline + 0.04 * loop, 0.95)
+                value = round(min(baseline + 0.04 * loop, 0.95), 4)
             else:
-                value = max(baseline - 0.03 * loop, 0.10)
+                value = round(max(baseline - 0.03 * loop, 0.10), 4)
             metrics.append(MetricRecord(loop_index=loop, metric_name=metric_name,
-                                        baseline=baseline, value=round(value, 4)))
+                                        baseline=baseline, value=value))
+            yield ProgressEvent(stage="튜닝", loop_index=loop, status="running",
+                                message=f"루프 {loop} {metric_name}={value}",
+                                kind="metric", metric=metrics[-1])
 
-        # 리포트 단계
-        yield ProgressEvent(stage="리포트", loop_index=inp.loop_count,
-                            status="running", message="리포트 생성 중...")
+        # 리포트
+        yield stage_evt("리포트", inp.loop_count, "running", "리포트 생성 중…")
+        yield info_evt("리포트", inp.loop_count, "log", "최종 리포트·코드·yml 작성")
         time.sleep(self._step_delay)
-
         self._result = self._build_result(inp, metrics, metric_name)
-        yield ProgressEvent(stage="리포트", loop_index=inp.loop_count,
-                            status="done", message="완료")
+        yield stage_evt("리포트", inp.loop_count, "done", "완료")
 
     def get_result(self) -> PipelineResult:
         if self._result is None:

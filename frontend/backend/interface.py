@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterator, List, Protocol, runtime_checkable
+from typing import Iterator, List, Optional, Protocol, runtime_checkable
 
 # 파이프라인 단계(진행 화면 체크리스트 순서)
 PIPELINE_STAGES: List[str] = [
@@ -34,6 +34,9 @@ class ProgressEvent:
     loop_index: int               # 0 = 베이스라인
     status: str                   # "running" | "done" | "failed"
     message: str                  # 사용자에게 보일 한 줄 설명
+    kind: str = "stage"           # "stage"|"llm"|"code"|"log"|"metric"
+    detail: str = ""              # 생성 코드 / LLM 출력 / 로그 본문
+    metric: "Optional[MetricRecord]" = None  # kind=="metric"일 때 실시간 지표
 
 
 @dataclass
