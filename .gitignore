@@ -1,7 +1,9 @@
-data/*.db
-data/*.sqlite
+storage/data/*.db
+storage/data/*.sqlite
+storage/mlruns/
 __pycache__/
 *.pyc
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+agent/README.md

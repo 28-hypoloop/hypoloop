@@ -2,7 +2,15 @@
 name = "hypoloop"                      # 프로젝트 이름
 version = "0.1.0"                      # 버전 (0.1.0 = 초기 개발 단계)
 requires-python = ">=3.10"             # 파이썬 3.10 이상 필요 (>= 는 "이상")
-dependencies = ["pandas", "pyyaml"]    # 실행에 꼭 필요한 라이브러리 (pandas=CSV처리, pyyaml=YML생성)
+dependencies = [
+    "pandas", 
+    "pyyaml",
+    "langchain-core",
+    "langgraph",
+    "langchain-upstage",
+    "mlflow",
+    "feast"
+]
 
 [project.optional-dependencies]        # 선택적 의존성 구역 (상황에 따라 까는 것)
 dev = ["pytest", "ruff"]               # 개발할 때만 필요 (pytest=테스트, ruff=포맷터). 실행엔 불필요

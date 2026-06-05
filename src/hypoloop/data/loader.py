@@ -10,8 +10,8 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 def _normalize_db_path(db_path: str | Path) -> Path:
     p = Path(db_path)
-    data_dir = _PROJECT_ROOT / "data"
-    if not p.is_absolute() and p.parts[0] != "data":
+    data_dir = _PROJECT_ROOT / "storage" / "data"
+    if not p.is_absolute() and "data" not in p.parts and "storage" not in p.parts:
         p = data_dir / p.name
     p = p.resolve()
     p.parent.mkdir(parents=True, exist_ok=True)
