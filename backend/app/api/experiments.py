@@ -1,88 +1,44 @@
 import uuid
-from typing import Generator, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException
 
-from app.db import crud
-from app.db.session import get_db
+from app.core.path_utils import ensure_dir, get_experiment_dir, get_status_yml_path
+from app.services import yml_generator
 
 router = APIRouter(tags=["experiments"])
 
 
-# --- shared DB dependency ---
-
-def _project_db(project_id: str) -> Generator[Session, None, None]:
-    """Resolve a DB session from the project_id query parameter."""
-    yield from get_db(project_id)
-
-
-# --- schemas ---
-
-class ExperimentResponse(BaseModel):
-    exp_id: str
-    hypothesis_id: str
-    score: Optional[float]
-    status: str
-    analysis_text: Optional[str]
-
-
-class ExperimentUpdate(BaseModel):
-    score: Optional[float] = None
-    status: Optional[str] = None
-    analysis_text: Optional[str] = None
-
-
-# --- endpoints ---
-
-@router.post(
-    "/hypotheses/{hypothesis_id}/experiments",
-    response_model=ExperimentResponse,
-    status_code=201,
-)
+@router.post("/hypotheses/{hypothesis_id}/experiments", status_code=201)
 def create_experiment(
     hypothesis_id: str,
     project_id: str,
-    db: Session = Depends(_project_db),
-) -> ExperimentResponse:
+) -> dict:
     """
-    Register a new experiment record in DB (DB only — exp_id.yml is written by the agent).
+    Create an experiment directory and write the initial status.yml (status=ready).
+    exp_id.yml is written by the agent, not here.
     project_id is a required query parameter.
     """
-    row = crud.create_experiment(
-        db, exp_id=str(uuid.uuid4()), hypothesis_id=hypothesis_id
+    exp_id = str(uuid.uuid4())
+    ensure_dir(get_experiment_dir(project_id, hypothesis_id, exp_id))
+    yml_generator.generate_status_yml(
+        project_id=project_id,
+        hypothesis_id=hypothesis_id,
+        exp_id=exp_id,
     )
-    return ExperimentResponse(
-        exp_id=row.exp_id,
-        hypothesis_id=row.hypothesis_id,
-        score=row.score,
-        status=row.status,
-        analysis_text=row.analysis_text,
-    )
+    return {"exp_id": exp_id, "hypothesis_id": hypothesis_id, "status": "ready"}
 
 
-@router.patch("/experiments/{exp_id}", response_model=ExperimentResponse)
-def update_experiment(
+@router.get("/experiments/{exp_id}/status")
+def get_experiment_status(
     exp_id: str,
-    body: ExperimentUpdate,
     project_id: str,
-    db: Session = Depends(_project_db),
-) -> ExperimentResponse:
-    """Agent callback: update score, status, or analysis_text for a finished experiment."""
-    row = crud.update_experiment(
-        db,
-        exp_id,
-        score=body.score,
-        status=body.status,
-        analysis_text=body.analysis_text,
-    )
-    if row is None:
-        raise HTTPException(status_code=404, detail="Experiment not found")
-    return ExperimentResponse(
-        exp_id=row.exp_id,
-        hypothesis_id=row.hypothesis_id,
-        score=row.score,
-        status=row.status,
-        analysis_text=row.analysis_text,
-    )
+    hypothesis_id: str,
+) -> dict:
+    """
+    Read and return the current status.yml for an experiment.
+    project_id and hypothesis_id are required query parameters to locate the file.
+    """
+    status_path = get_status_yml_path(project_id, hypothesis_id, exp_id)
+    if not status_path.exists():
+        raise HTTPException(status_code=404, detail="Experiment status not found")
+    return yml_generator.read_status_yml(status_path)

@@ -1,8 +1,9 @@
+from datetime import datetime
 from pathlib import Path
 
 import yaml
 
-from app.core.path_utils import ensure_dir, get_hypothesis_yml_path
+from app.core.path_utils import ensure_dir, get_hypothesis_yml_path, get_status_yml_path
 
 
 def generate_hypothesis_yml(
@@ -34,6 +35,30 @@ def generate_hypothesis_yml(
     return yml_path
 
 
+def generate_status_yml(
+    *,
+    project_id: str,
+    hypothesis_id: str,
+    exp_id: str,
+) -> Path:
+    """
+    Write the initial status.yml for a new experiment (status=ready, score=null).
+    The agent will update this file as the experiment progresses.
+    Returns the path of the written file.
+    """
+    data = {
+        "hypothesis_id": hypothesis_id,
+        "exp_id": exp_id,
+        "status": "ready",
+        "score": None,
+        "analysis_text": None,
+        "updated_at": datetime.utcnow().isoformat(),
+    }
+    status_path = get_status_yml_path(project_id, hypothesis_id, exp_id)
+    _write_yml(status_path, data)
+    return status_path
+
+
 def set_hypothesis_ready(yml_path: Path) -> None:
     """Flip ready=true in an existing hypothesis YML file."""
     data = read_hypothesis_yml(yml_path)
@@ -44,6 +69,12 @@ def set_hypothesis_ready(yml_path: Path) -> None:
 def read_hypothesis_yml(yml_path: Path) -> dict:
     """Read and return the contents of a hypothesis YML file."""
     with open(yml_path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def read_status_yml(status_path: Path) -> dict:
+    """Read and return the contents of a status.yml file."""
+    with open(status_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 

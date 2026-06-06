@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import DeclarativeBase, relationship
+from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
@@ -18,22 +18,3 @@ class Hypothesis(Base):
     max_experiments = Column(Integer, nullable=False)
     parallel_count = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    experiments = relationship(
-        "Experiment", back_populates="hypothesis", cascade="all, delete-orphan"
-    )
-
-
-class Experiment(Base):
-    __tablename__ = "experiments"
-
-    exp_id = Column(String, primary_key=True)
-    hypothesis_id = Column(
-        String, ForeignKey("hypotheses.hypothesis_id"), nullable=False, index=True
-    )
-    score = Column(Float, nullable=True)
-    status = Column(String, nullable=False, default="ready")  # ready/running/done/failed
-    analysis_text = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    hypothesis = relationship("Hypothesis", back_populates="experiments")

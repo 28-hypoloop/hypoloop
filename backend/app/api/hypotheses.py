@@ -112,7 +112,10 @@ def get_report(
     project_id: str,
     db: Session = Depends(_project_db),
 ) -> dict:
-    """Return best_score, score_history, and analysis_texts for a hypothesis."""
+    """
+    Read all status.yml files under the hypothesis's experiments directory and
+    return best_score, score_history, and analysis_texts.
+    """
     if crud.get_hypothesis(db, hypothesis_id) is None:
         raise HTTPException(status_code=404, detail="Hypothesis not found")
-    return build_report(db, hypothesis_id)
+    return build_report(project_id, hypothesis_id)

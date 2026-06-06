@@ -19,7 +19,8 @@ u_id (사용자)
     └── 가설_id (가설)
         ├── u_id_가설_id.yml   ← 백엔드가 생성
         └── exp_id (실험)
-            ├── exp_id.yml      ← 에이전트(AI팀)가 생성
+            ├── exp_id.yml      ← 에이전트(AI팀)가 생성 (실험 설계)
+            ├── status.yml      ← 실험 상태/점수 (파일로 관리, 에이전트가 갱신)
             └── 에이전트가 생성한 학습용 기능코드  ← 에이전트 영역
 ```
 
@@ -32,21 +33,25 @@ u_id (사용자)
 - 프로젝트별 로컬 SQLite DB 생성·연결·경로 정규화
 - YML 파일 생성
   - `u_id_가설_id.yml` : 가설 메타데이터 (백엔드 전용 생성 대상)
-- **트리거**: 가설 yml 생성이 끝나면 해당 yml에 `ready` 플래그를 세팅 → 에이전트가 이를 감지/호출
-- DB 저장 항목
+- **트리거**: 가설 yml 생성이 끝나면 에이전트의 엔드포인트를 **직접 API 호출**하여 실험 시작을 알린다 (에이전트 엔드포인트는 정우님이 구현, 호출 방법은 구현 후 공유 예정)
+- DB 저장 항목 (가설 단위 메타만 DB에 보관)
   - 가설 내용
   - 실험 횟수 (병렬 횟수, 최대 길이 제한)
-  - 가설별 점수 (`가설_id` + `exp_id` 조합, 초기엔 비어있음)
+- 실험 상태/점수는 **DB 테이블이 아니라 `exp_id` 폴더의 상태 파일(`status.yml`)로 관리**
+  - 실험 상태(ready / running / done / failed)
+  - 실험별 점수 (초기엔 비어있음, 에이전트가 채움)
+  - 실험 결과 분석 텍스트 (에이전트가 채움)
 - 보고서용 데이터 제공 API
   - 가설별 최고점
   - 가설별 실험 그래프용 데이터 (실험별 점수 추이)
-  - 실험 결과 분석 텍스트(에이전트가 채운 값 전달)
+  - 실험 결과 분석 텍스트(상태 파일에서 읽어 전달)
 
 ### 담당 X (경계)
 - 실제 ML 트레인 코드 작성 → **에이전트(AI 팀)**
 - `exp_id.yml` (실험 설계 명세) 생성 → **에이전트(AI 팀)**
 - 실험 설계 내용(피처/하이퍼파라미터/모델/수식) 산출 → 에이전트
 - eda / 재실험 분기 로직 → 에이전트
+- `parallel_count` 만큼의 **실험 병렬 실행/스케줄링 → 에이전트(AI 팀)** (백엔드는 숫자만 전달)
 - 프론트엔드 화면 → **프론트 담당**
 
 > ⚠️ 경계가 모호한 작업(예: yml 스키마 필드 추가)은 임의 결정하지 말고 팀 질문으로 남길 것.
@@ -58,7 +63,7 @@ u_id (사용자)
 - 언어: Python 3.11+
 - 웹 프레임워크: FastAPI
 - DB: SQLite (프로젝트별 분리, 파일 기반)
-- ORM/드라이버: SQLAlchemy 또는 sqlite3 (팀 컨벤션 따름 — 미정 시 질문)
+- ORM/드라이버: **SQLAlchemy** (확정 — 가설↔실험 관계 및 스키마 확장 대비)
 - 파일 포맷: YAML (PyYAML)
 
 ---
@@ -74,8 +79,8 @@ backend/
 │   │   ├── hypotheses.py       # 가설 CRUD
 │   │   └── experiments.py      # 실험(exp) CRUD
 │   ├── services/
-│   │   ├── yml_generator.py    # u_id_가설_id.yml 생성 (exp_id.yml은 에이전트 담당)
-│   │   ├── trigger.py          # ready 플래그 세팅 → 에이전트 호출
+│   │   ├── yml_generator.py    # u_id_가설_id.yml / status.yml 생성 (exp_id.yml은 에이전트)
+│   │   ├── trigger.py          # 가설 yml 완성 후 에이전트 엔드포인트 직접 호출
 │   │   └── report_builder.py   # 최고점 / 그래프 데이터 / 분석 텍스트 집계
 │   ├── db/
 │   │   ├── models.py           # 스키마 정의
@@ -91,6 +96,8 @@ backend/
 ## 4. DB 스키마 (초안)
 
 > 아래는 이미지 기반 초안. 확정 전 팀 리뷰 필요.
+> **실험(experiments)은 DB 테이블로 두지 않고 파일로 관리한다** (5번 참고).
+> DB에는 가설 단위 메타만 보관한다.
 
 **hypotheses**
 | 컬럼 | 타입 | 설명 |
@@ -103,15 +110,8 @@ backend/
 | parallel_count | INTEGER | 병렬 실험 횟수 |
 | created_at | DATETIME | 생성 시각 |
 
-**experiments**
-| 컬럼 | 타입 | 설명 |
-|------|------|------|
-| exp_id | TEXT (PK) | 실험 식별자 |
-| 가설_id | TEXT (FK) | 소속 가설 |
-| score | REAL (nullable) | 가설별 점수 (초기 NULL) |
-| status | TEXT | ready / running / done / failed |
-| analysis_text | TEXT (nullable) | 실험 결과 분석 텍스트(에이전트 작성) |
-| created_at | DATETIME | 생성 시각 |
+> 실험 상태·점수·분석 텍스트는 테이블 컬럼이 아니라 각 `exp_id` 폴더의
+> `status.yml` 파일에 저장되며, 실험이 진행되는 동안 계속 갱신된다.
 
 ---
 
@@ -141,6 +141,19 @@ design:
   formula: <string>         # 산식/수식
 ```
 
+### `status.yml` (실험 상태/점수 — **파일로 관리**)
+> 실험이 진행되는 동안 계속 갱신되는 파일. DB 테이블 대신 이 파일로 상태를 추적한다.
+> 백엔드는 초기 골격을 만들 수 있고(상태 `ready`), 진행 중 점수·상태·분석은 에이전트가 갱신한다.
+> 보고서 생성 시 백엔드는 이 파일을 읽어 집계한다.
+```yaml
+hypothesis_id: <string>
+exp_id: <string>
+status: ready               # ready / running / done / failed
+score: null                 # 실험 점수 (초기 null, 에이전트가 채움)
+analysis_text: null         # 실험 결과 분석 텍스트 (에이전트가 채움)
+updated_at: <timestamp>     # 마지막 갱신 시각
+```
+
 ---
 
 ## 6. 주요 API 엔드포인트 (초안)
@@ -149,10 +162,10 @@ design:
 |--------|------|------|
 | POST | `/projects` | 프로젝트 생성 + 로컬 DB 초기화 |
 | POST | `/projects/{project_id}/hypotheses` | 가설 등록 → `u_id_가설_id.yml` 생성 |
-| POST | `/hypotheses/{가설_id}/ready` | 트리거: ready 세팅 → 에이전트 호출 |
-| POST | `/hypotheses/{가설_id}/experiments` | exp 레코드 생성 (DB 등록만, yml은 에이전트가 작성) |
-| PATCH | `/experiments/{exp_id}` | 점수/분석 텍스트 업데이트(에이전트 콜백) |
-| GET | `/hypotheses/{가설_id}/report` | 최고점 + 그래프 데이터 + 분석 텍스트 |
+| POST | `/hypotheses/{가설_id}/ready` | 가설 yml 완성 표시 → 에이전트 엔드포인트 직접 호출 |
+| POST | `/hypotheses/{가설_id}/experiments` | exp 생성 (폴더 + `status.yml` 골격 생성, status=ready) |
+| GET | `/experiments/{exp_id}/status` | `status.yml` 읽어서 현재 상태/점수 반환 |
+| GET | `/hypotheses/{가설_id}/report` | 하위 exp들의 `status.yml`을 모아 최고점/그래프/분석 집계 |
 
 ---
 
@@ -162,28 +175,32 @@ design:
 2. 스키마·API 경로·필드명은 위 초안을 따르되, **추가·변경이 필요하면 코드로 밀어붙이지 말고 질문**한다.
 3. 모든 함수에 타입 힌트와 docstring을 단다.
 4. DB 경로는 반드시 `path_utils.py`를 통해 정규화한다(직접 문자열 결합 금지).
-5. YML 생성/수정은 `yml_generator.py`에 모은다. 다른 모듈에서 직접 yaml.dump 하지 않는다. **단, `exp_id.yml`은 에이전트 산출물이므로 백엔드는 읽기만 하고 절대 생성·수정하지 않는다.**
-6. 커밋은 작은 단위로, 기능별로 나눈다. (`feat:`, `fix:`, `chore:` 컨벤션)
-7. main 직접 push 대신 feature 브랜치 + PR로 올린다.
+5. YML 생성/수정은 `yml_generator.py`에 모은다. 다른 모듈에서 직접 yaml.dump 하지 않는다. **단, `exp_id.yml`은 에이전트 산출물이므로 백엔드는 읽기만 하고 절대 생성·수정하지 않는다.** `status.yml`은 백엔드가 골격(status=ready)을 만들고, 이후 점수·상태·분석은 에이전트가 갱신한다.
+6. 실험 상태/점수는 DB 테이블이 아니라 `status.yml` 파일로 관리한다. experiments 테이블을 만들지 않는다.
+7. 커밋은 작은 단위로, 기능별로 나눈다. (`feat:`, `fix:`, `chore:` 컨벤션)
+8. main 직접 push 대신 feature 브랜치 + PR로 올린다.
 
 ---
 
 ## 8. 우선순위 (구현 순서 제안)
 
 1. `db/session.py` + `core/path_utils.py` — DB 연결·경로 기반 다지기
-2. `db/models.py` + `db/crud.py` — 스키마와 입출력
-3. `services/yml_generator.py` — YML 생성
+2. `db/models.py` + `db/crud.py` — hypotheses 스키마와 입출력
+3. `services/yml_generator.py` — `u_id_가설_id.yml` / `status.yml` 골격 생성
 4. `api/projects.py`, `api/hypotheses.py` — 등록 플로우
 5. `services/trigger.py` — ready 트리거
-6. `api/experiments.py` + 콜백(PATCH) — 점수/분석 수신
-7. `services/report_builder.py` + `/report` — 보고서 데이터
+6. `api/experiments.py` — exp 폴더/`status.yml` 생성 + 상태 조회
+7. `services/report_builder.py` + `/report` — `status.yml`들을 모아 보고서 데이터 집계
 
 ---
 
-## 9. 열린 질문 (팀 확정 필요)
+## 9. 결정 사항 (Decisions)
 
-- [ ] ORM은 SQLAlchemy vs sqlite3 직접 사용 중 무엇으로?
-- [ ] 트리거 방식: yml `ready` 폴링 vs 직접 API 호출 vs 메시지 큐?
-- [ ] `parallel_count` 병렬 실행 주체가 백엔드인지 에이전트인지?
-- [ ] 에이전트가 점수/분석을 돌려주는 방식: 콜백 API vs yml 파일 갱신?
-- [ ] 프로젝트별 DB 파일 저장 경로 루트는 어디로 고정?
+> 아래 항목은 팀에서 확정 완료. 변경 시 팀 합의 필요.
+
+- [x] ~~ORM은 SQLAlchemy vs sqlite3~~ → **SQLAlchemy로 결정**
+- [x] ~~트리거 방식~~ → **직접 API 호출**로 결정 (에이전트 엔드포인트는 정우님이 구현, 트리거 방법 추후 공유)
+- [x] ~~`parallel_count` 병렬 실행 주체~~ → **에이전트(AI팀)가 담당으로 결정**
+- [x] ~~에이전트가 점수/분석을 돌려주는 방식~~ → **`status.yml` 파일 갱신으로 결정**
+- [x] ~~`status.yml` 동시 쓰기 충돌 처리~~ → **실험별 파일 분리**로 결정 (병렬 실험은 각자 `exp_id` 폴더의 `status.yml`만 사용 → 단일 writer)
+- [x] ~~프로젝트별 DB/파일 저장 경로 루트~~ → **저장소 기준 상대경로 `data/projects/{project_id}/` 고정** (로컬 실행 전제)

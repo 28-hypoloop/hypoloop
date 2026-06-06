@@ -36,6 +36,16 @@ def get_experiment_yml_path(project_id: str, hypothesis_id: str, exp_id: str) ->
     return get_experiment_dir(project_id, hypothesis_id, exp_id) / "exp_id.yml"
 
 
+def get_status_yml_path(project_id: str, hypothesis_id: str, exp_id: str) -> Path:
+    """Return the status.yml path inside an experiment directory."""
+    return get_experiment_dir(project_id, hypothesis_id, exp_id) / "status.yml"
+
+
+def get_experiments_dir(project_id: str, hypothesis_id: str) -> Path:
+    """Return the experiments directory for a hypothesis."""
+    return get_hypothesis_dir(project_id, hypothesis_id) / "experiments"
+
+
 def get_reports_dir(project_id: str) -> Path:
     """Return the reports directory for a project."""
     return get_project_dir(project_id) / "reports"
