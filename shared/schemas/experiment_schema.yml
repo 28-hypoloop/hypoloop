@@ -1,0 +1,8 @@
+# exp_id.yml — 에이전트(AI팀)가 생성하는 실험 설계 명세 스키마 (백엔드는 읽기 전용)
+hypothesis_id: string
+exp_id: string
+design:
+  features: list           # 사용할 피처 목록
+  hyperparameters: object  # 하이퍼파라미터 키-값
+  model: string            # 모델명
+  formula: string          # 평가 산식/수식
