@@ -1,0 +1,7 @@
+scripts/setup_house_prices.py
+.DS_Store
+.env
+mlruns/
+data.db
+__pycache__/
+*.pyc

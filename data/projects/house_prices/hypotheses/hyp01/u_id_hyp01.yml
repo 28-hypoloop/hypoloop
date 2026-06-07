@@ -1,0 +1,15 @@
+design:
+  experiment_text: "Target variable 'SalePrice'\uC5D0 \uB300\uD55C \uAE30\uCD08 \uD1B5\
+    \uACC4\uB7C9 \uBD84\uD3EC\uB97C EDA\uD558\uACE0, \uB204\uB77D\uB41C \uAC12 \uCC98\
+    \uB9AC \uD6C4 RandomForestRegressor \uBAA8\uB378\uC744 \uD559\uC2B5\uD558\uC5EC\
+    \ \uAC80\uC99D\uD558\uB77C."
+  features:
+  - OverallQual
+  - GrLivArea
+  - GarageCars
+  - TotalBsmtSF
+  hyperparameters:
+    n_estimators: 100
+    random_state: 42
+  model: RandomForestRegressor
+hypothesis_id: hyp01

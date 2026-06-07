@@ -1,0 +1,13 @@
+hypothesis_id: hyp02
+design:
+  experiment_text: "명목형(Nominal) 및 순서형(Ordinal) 범주형 변수들을 적절히 인코딩(One-Hot Encoding, Label Encoding 등)하여 모델에 추가하면 예측 점수(R2)가 높아질 것이다."
+  model: "RandomForestRegressor"
+  features: 
+    - "OverallQual"
+    - "GrLivArea"
+    - "GarageCars"
+    - "TotalBsmtSF"
+    - "Neighborhood"
+    - "ExterQual"
+    - "BldgType"
+  hyperparameters: {"n_estimators": 100, "random_state": 42}
