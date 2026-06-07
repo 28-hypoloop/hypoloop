@@ -42,17 +42,18 @@ def generate_status_yml(
     exp_id: str,
 ) -> Path:
     """
-    Write the initial status.yml for a new experiment (status=ready, score=null).
-    The agent will update this file as the experiment progresses.
+    Write the initial status.yml for a new experiment (status=ready).
+    This file tracks the agent's current task/progress for UI display only —
+    the final score and design live in exp_id.yml (agent-written).
     Returns the path of the written file.
     """
     data = {
         "hypothesis_id": hypothesis_id,
         "exp_id": exp_id,
+        "current_task": None,
         "status": "ready",
-        "score": None,
+        "last_updated": datetime.utcnow().isoformat(),
         "analysis_text": None,
-        "updated_at": datetime.utcnow().isoformat(),
     }
     status_path = get_status_yml_path(project_id, hypothesis_id, exp_id)
     _write_yml(status_path, data)
@@ -75,6 +76,12 @@ def read_hypothesis_yml(yml_path: Path) -> dict:
 def read_status_yml(status_path: Path) -> dict:
     """Read and return the contents of a status.yml file."""
     with open(status_path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
+def read_experiment_yml(yml_path: Path) -> dict:
+    """Read and return the contents of an agent-generated exp_id.yml file (read-only)."""
+    with open(yml_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
