@@ -11,7 +11,7 @@ import seaborn as sns
 # 3. 모든 생성된 시각화 차트 이미지는 반드시 IMG_DIR 에 저장할 것
 # ==========================================
 
-DB_PATH = "data/projects/{project_id}/data.db" # 실제 경로로 교체 필요
+DB_PATH = "data/projects/{project_id}/project.db" # 실제 경로로 교체 필요
 EXP_DIR = os.path.dirname(os.path.abspath(__file__))
 IMG_DIR = os.path.join(EXP_DIR, "img")
 

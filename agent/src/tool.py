@@ -173,10 +173,61 @@ def execute_command(command: str) -> str:
         return f"Error executing command: {str(e)}"
 
 
+@tool
+def update_status(exp_dir: str, current_task: str, status: str, analysis_text: str = None, score: float = None) -> str:
+    """프론트엔드 UI에 진행 상황을 실시간으로 알리기 위해 status.yml을 업데이트합니다.
+    status는 'ready', 'running', 'done', 'failed' 중 하나여야 합니다.
+    작업 단계가 바뀔 때마다(예: EDA 시작, 모델 학습 시작, 완료 등) 이 도구를 호출하세요.
+    실험이 완료되어 평가 점수(예: R2 Score)가 나왔다면 score 파라미터도 함께 전달하세요."""
+    import yaml
+    from datetime import datetime
+    
+    status_path = os.path.join(exp_dir, "status.yml")
+    
+    try:
+        data = {}
+        if os.path.exists(status_path):
+            try:
+                with open(status_path, "r", encoding="utf-8") as f:
+                    data = yaml.safe_load(f) or {}
+            except Exception:
+                pass
+                
+        data["current_task"] = current_task
+        data["status"] = status
+        data["last_updated"] = datetime.now().isoformat()
+        if analysis_text is not None:
+            data["analysis_text"] = analysis_text
+            
+        with open(status_path, "w", encoding="utf-8") as f:
+            yaml.dump(data, f, allow_unicode=True)
+            
+        # If score is provided, also update {exp_id}.yml
+        if score is not None:
+            exp_id = os.path.basename(os.path.normpath(exp_dir))
+            exp_yml_path = os.path.join(exp_dir, f"{exp_id}.yml")
+            
+            exp_data = {}
+            if os.path.exists(exp_yml_path):
+                try:
+                    with open(exp_yml_path, "r", encoding="utf-8") as f:
+                        exp_data = yaml.safe_load(f) or {}
+                except Exception:
+                    pass
+            exp_data["score"] = float(score)
+            with open(exp_yml_path, "w", encoding="utf-8") as f:
+                yaml.dump(exp_data, f, allow_unicode=True)
+            
+        return f"Status successfully updated to: {status} ({current_task})"
+    except Exception as e:
+        return f"Error updating status: {str(e)}"
+
+
 tools = [
     list_directory,
     search_code,
     read_file,
     write_file,
-    execute_command
+    execute_command,
+    update_status
 ]

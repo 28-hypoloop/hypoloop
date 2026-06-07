@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 # 3. 모델 학습 결과와 메트릭은 반드시 MLflow로 로깅할 것
 # ==========================================
 
-DB_PATH = "data/projects/{project_id}/data.db" # 실제 경로로 교체 필요
+DB_PATH = "data/projects/{project_id}/project.db" # 실제 경로로 교체 필요
 MLFLOW_URI = "sqlite:///{hypothesis_dir}/mlflow.db" # 모든 가설 내 실험이 공유하는 DB
 EXP_NAME = "exp_{project_id}"
 
