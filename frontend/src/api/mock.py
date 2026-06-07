@@ -22,8 +22,8 @@ class MockStore:
         self._base: Dict[str, float] = {}
         self._seq = 0
         self._threads: Dict[str, threading.Thread] = {}   # 백그라운드 실행
-        # 기본 프로젝트 1개 (이후 create_project로 추가)
-        self.create_project("타이타닉 생존 예측")
+        # 기본 데모 프로젝트 1개 — Kaggle House Prices 데이터셋 (이후 create_project로 추가)
+        self.create_project("주택 가격 예측 (House Prices)")
 
     def list_projects(self) -> List[Project]:
         return list(self._projects)
@@ -144,9 +144,12 @@ class MockStore:
             f"하이퍼파라미터를 조정하며 평가 점수(0~1)를 측정했습니다.\n\n"
             f"## 가설\n\n> {h.content}\n\n"
             f"## 데이터 개요\n\n"
-            f"- 소스: 프로젝트 로컬 DB(SQLite)\n"
-            f"- 전처리: 결측치 처리, 범주형 인코딩, 표준화\n"
-            f"- 분할: 학습/검증 = 80/20\n\n"
+            f"- 데이터셋: Ames Housing (Kaggle House Prices) — 미국 아이오와주 에임스 주택 거래\n"
+            f"- 타깃: SalePrice(주택 판매가) 예측 — 회귀 문제\n"
+            f"- 피처: 약 79개 (예: OverallQual, GrLivArea, GarageCars, "
+            f"TotalBsmtSF, YearBuilt, Neighborhood)\n"
+            f"- 평가 지표: RMSE (로그 변환된 판매가 기준)\n"
+            f"- 전처리: 결측치 처리, 범주형 인코딩, 스케일링 / 학습·검증 80:20\n\n"
             f"## 실험 설정\n\n"
             f"- 최대 실험 횟수: {h.max_experiments}\n"
             f"- 병렬 횟수: {h.parallel_count}\n"

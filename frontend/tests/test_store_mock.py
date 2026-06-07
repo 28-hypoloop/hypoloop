@@ -15,8 +15,8 @@ def test_agent_event_fields():
 
 
 def test_project_fields():
-    p = Project(project_id="p1", name="타이타닉")
-    assert p.name == "타이타닉"
+    p = Project(project_id="p1", name="에임스 주택")
+    assert p.name == "에임스 주택"
 
 
 from src.api.mock import MockStore
@@ -34,7 +34,7 @@ def test_mockstore_satisfies_protocol():
 def test_default_project_exists():
     s = MockStore()
     assert len(s.list_projects()) == 1
-    assert s.list_projects()[0].name == "타이타닉 생존 예측"
+    assert s.list_projects()[0].name == "주택 가격 예측 (House Prices)"
 
 
 def test_create_project():
@@ -47,8 +47,8 @@ def test_create_project():
 def test_rename_project():
     s = MockStore()
     p = s.create_project("프로젝트 2")
-    s.rename_project(p.project_id, "타이타닉 2차")
-    assert s.list_projects()[-1].name == "타이타닉 2차"
+    s.rename_project(p.project_id, "House Prices 2차")
+    assert s.list_projects()[-1].name == "House Prices 2차"
 
 
 def test_rename_project_unknown_raises():
@@ -85,7 +85,7 @@ def test_create_and_list():
     s = MockStore()
     pid = _pid(s)
     assert s.list_hypotheses(pid) == []
-    h = s.create_hypothesis(pid, "Pclass 영향", max_experiments=3, parallel_count=1)
+    h = s.create_hypothesis(pid, "OverallQual 영향", max_experiments=3, parallel_count=1)
     assert h.status == "registered"
     assert h.project_id == pid
     assert len(s.list_hypotheses(pid)) == 1

@@ -1,12 +1,10 @@
 """Hypo Loop — Streamlit 진입점. 사이드바 + 대시보드/등록/보고서 라우팅."""
 from __future__ import annotations
 
-import os
 import time
 
 import streamlit as st
 
-from src.api.backend import BackendStore
 from src.api.mock import MockStore
 from src import theme
 from src.components import sidebar
@@ -14,16 +12,9 @@ from src.pages import dashboard, hypothesis_register, report
 
 
 def get_store():
-    """store 주입 지점. 세션에 1개 보관.
-
-    HYPOLOOP_STORE=mock 이면 MockStore(데모 시뮬레이션), 그 외에는
-    실제 백엔드(FastAPI)와 통신하는 BackendStore를 사용한다.
-    """
+    """store 주입 지점. 세션에 1개 보관(나중에 BackendStore로 교체)."""
     if "store" not in st.session_state:
-        if os.getenv("HYPOLOOP_STORE", "backend") == "mock":
-            st.session_state.store = MockStore()
-        else:
-            st.session_state.store = BackendStore()
+        st.session_state.store = MockStore()
     return st.session_state.store
 
 
