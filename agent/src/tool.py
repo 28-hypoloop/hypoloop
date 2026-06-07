@@ -58,6 +58,10 @@ def list_directory(path: str) -> str:
         else:
             lines.append(f"{indent}{current.name}/")
 
+        if len(lines) >= MAX_ENTRIES:
+            truncated = True
+            break
+
         for name in sorted(filenames):
             lines.append(f"{indent}  {name}")
             if len(lines) >= MAX_ENTRIES:
