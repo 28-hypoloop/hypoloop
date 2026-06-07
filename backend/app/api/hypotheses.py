@@ -1,3 +1,4 @@
+import shutil
 import uuid
 from typing import Generator
 
@@ -5,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.core.path_utils import get_hypothesis_dir
 from app.db import crud
 from app.db.session import get_db
 from app.services import trigger, yml_generator
-from app.services.report_builder import build_report
+from app.services.report_builder import build_report, get_best_score, get_hypothesis_status
 
 router = APIRouter(tags=["hypotheses"])
 
@@ -37,6 +39,16 @@ class HypothesisResponse(BaseModel):
     max_experiments: int
     parallel_count: int
     yml_path: str
+
+
+class HypothesisListItem(BaseModel):
+    hypothesis_id: str
+    project_id: str
+    content: str
+    max_experiments: int
+    parallel_count: int
+    status: str
+    best_score: float | None
 
 
 # --- endpoints ---
@@ -82,6 +94,45 @@ def create_hypothesis(
         parallel_count=body.parallel_count,
         yml_path=str(yml_path),
     )
+
+
+@router.get(
+    "/projects/{project_id}/hypotheses",
+    response_model=list[HypothesisListItem],
+)
+def list_hypotheses(
+    project_id: str,
+    db: Session = Depends(_project_db),
+) -> list[HypothesisListItem]:
+    """List a project's hypotheses, enriched with a derived status and best score
+    (read from status.yml/exp_id.yml — for dashboard/sidebar display)."""
+    rows = crud.list_hypotheses(db, project_id)
+    return [
+        HypothesisListItem(
+            hypothesis_id=row.hypothesis_id,
+            project_id=row.project_id,
+            content=row.content,
+            max_experiments=row.max_experiments,
+            parallel_count=row.parallel_count,
+            status=get_hypothesis_status(project_id, row.hypothesis_id),
+            best_score=get_best_score(project_id, row.hypothesis_id),
+        )
+        for row in rows
+    ]
+
+
+@router.delete("/hypotheses/{hypothesis_id}", status_code=204)
+def delete_hypothesis(
+    hypothesis_id: str,
+    project_id: str,
+    db: Session = Depends(_project_db),
+) -> None:
+    """Delete a hypothesis's DB record and its directory (YML + experiments)."""
+    if not crud.delete_hypothesis(db, hypothesis_id):
+        raise HTTPException(status_code=404, detail="Hypothesis not found")
+    hyp_dir = get_hypothesis_dir(project_id, hypothesis_id)
+    if hyp_dir.exists():
+        shutil.rmtree(hyp_dir)
 
 
 @router.post("/hypotheses/{hypothesis_id}/ready", status_code=200)

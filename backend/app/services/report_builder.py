@@ -44,6 +44,26 @@ def _collect_experiment_data(project_id: str, hypothesis_id: str) -> list[dict]:
     return results
 
 
+def get_hypothesis_status(project_id: str, hypothesis_id: str) -> str:
+    """
+    Derive a coarse hypothesis-level status from its experiments' status.yml files
+    (UI display only — the DB stores no status column for hypotheses):
+      - "registered": no experiments created yet
+      - "error":      at least one experiment failed
+      - "done":       experiments exist and all are done
+      - "running":    experiments exist but are still in progress
+    """
+    data = _collect_experiment_data(project_id, hypothesis_id)
+    if not data:
+        return "registered"
+    statuses = [d["status"] for d in data]
+    if any(s == "failed" for s in statuses):
+        return "error"
+    if all(s == "done" for s in statuses):
+        return "done"
+    return "running"
+
+
 def get_best_score(project_id: str, hypothesis_id: str) -> Optional[float]:
     """Return the highest score (read from each exp_id.yml), or None if no scores yet."""
     data = _collect_experiment_data(project_id, hypothesis_id)

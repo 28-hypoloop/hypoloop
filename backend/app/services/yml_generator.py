@@ -3,7 +3,12 @@ from pathlib import Path
 
 import yaml
 
-from app.core.path_utils import ensure_dir, get_hypothesis_yml_path, get_status_yml_path
+from app.core.path_utils import (
+    ensure_dir,
+    get_experiment_yml_path,
+    get_hypothesis_yml_path,
+    get_status_yml_path,
+)
 
 
 def generate_hypothesis_yml(
@@ -60,6 +65,35 @@ def generate_status_yml(
     return status_path
 
 
+def generate_experiment_yml(
+    *,
+    project_id: str,
+    hypothesis_id: str,
+    exp_id: str,
+) -> Path:
+    """
+    Write the initial exp_id.yml skeleton for a new experiment.
+    Per BACKEND_TASK.md, the backend fills in only the identifiers
+    (hypothesis_id/exp_id); the agent later fills design/score in place.
+    Returns the path of the written file.
+    """
+    data = {
+        "hypothesis_id": hypothesis_id,
+        "exp_id": exp_id,
+        "design": {
+            "experiment_text": None,
+            "model": None,
+            "features": [],
+            "hyperparameters": {},
+            "formula": None,
+        },
+        "score": None,
+    }
+    exp_yml_path = get_experiment_yml_path(project_id, hypothesis_id, exp_id)
+    _write_yml(exp_yml_path, data)
+    return exp_yml_path
+
+
 def set_hypothesis_ready(yml_path: Path) -> None:
     """Flip ready=true in an existing hypothesis YML file."""
     data = read_hypothesis_yml(yml_path)
@@ -80,7 +114,7 @@ def read_status_yml(status_path: Path) -> dict:
 
 
 def read_experiment_yml(yml_path: Path) -> dict:
-    """Read and return the contents of an agent-generated exp_id.yml file (read-only)."""
+    """Read and return the contents of an exp_id.yml file (skeleton from backend, design/score from agent)."""
     with open(yml_path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 

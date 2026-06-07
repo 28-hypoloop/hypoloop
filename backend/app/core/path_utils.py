@@ -32,7 +32,7 @@ def get_experiment_dir(project_id: str, hypothesis_id: str, exp_id: str) -> Path
 
 
 def get_experiment_yml_path(project_id: str, hypothesis_id: str, exp_id: str) -> Path:
-    """Return the exp_id.yml path. Backend reads only — agent writes this file."""
+    """Return the exp_id.yml path (backend writes the hypothesis_id/exp_id skeleton; agent fills design/score)."""
     return get_experiment_dir(project_id, hypothesis_id, exp_id) / "exp_id.yml"
 
 
@@ -44,6 +44,21 @@ def get_status_yml_path(project_id: str, hypothesis_id: str, exp_id: str) -> Pat
 def get_experiments_dir(project_id: str, hypothesis_id: str) -> Path:
     """Return the experiments directory for a hypothesis."""
     return get_hypothesis_dir(project_id, hypothesis_id) / "experiments"
+
+
+def get_projects_root() -> Path:
+    """Return the root directory containing all project directories."""
+    return DATA_ROOT / "projects"
+
+
+def list_project_ids() -> list[str]:
+    """Return IDs of all initialised projects (dirs containing project.db), sorted."""
+    root = get_projects_root()
+    if not root.exists():
+        return []
+    return sorted(
+        p.name for p in root.iterdir() if p.is_dir() and (p / "project.db").exists()
+    )
 
 
 def get_reports_dir(project_id: str) -> Path:

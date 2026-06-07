@@ -1,0 +1,7 @@
+u_id: demo_user
+project_id: it_test_proj
+hypothesis_id: dbe67e38-336b-4fdb-b9c4-a254e69db523
+content: 객실 등급이 생존율에 영향을 미친다
+max_experiments: 5
+parallel_count: 2
+ready: true

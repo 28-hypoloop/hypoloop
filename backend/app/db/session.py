@@ -31,6 +31,13 @@ def get_db(project_id: str) -> Generator[Session, None, None]:
         db.close()
 
 
+def remove_engine(project_id: str) -> None:
+    """Dispose and forget the cached engine for a project (call before deleting its files)."""
+    engine = _engines.pop(project_id, None)
+    if engine is not None:
+        engine.dispose()
+
+
 def init_db(project_id: str) -> None:
     """Create all tables in the project DB if they do not already exist."""
     from app.db.models import Base  # deferred to avoid circular import

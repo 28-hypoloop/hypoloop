@@ -38,3 +38,13 @@ def get_hypothesis(db: Session, hypothesis_id: str) -> Optional[Hypothesis]:
 def list_hypotheses(db: Session, project_id: str) -> list[Hypothesis]:
     """Return all hypotheses belonging to a project."""
     return db.query(Hypothesis).filter(Hypothesis.project_id == project_id).all()
+
+
+def delete_hypothesis(db: Session, hypothesis_id: str) -> bool:
+    """Delete a hypothesis record by ID. Returns True if a row was removed."""
+    row = db.get(Hypothesis, hypothesis_id)
+    if row is None:
+        return False
+    db.delete(row)
+    db.commit()
+    return True
