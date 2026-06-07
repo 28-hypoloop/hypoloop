@@ -17,19 +17,20 @@ def _render_running(h) -> None:
     ratio = min(done / total, 1.0)
     pct = int(ratio * 100)
 
+    # 1) 로그 콘솔(고정 높이)
     state = AgentActivityState()
     for ev in list(h.events):       # 백그라운드 스레드가 갱신 중 → 스냅샷으로 순회
         state.apply(ev)
-    if state.lines:
-        render_console(state)
+    render_console(state)
 
+    # 2) 로그 바로 아래: 진행률 바
+    st.progress(ratio, text=f"진행률 {pct}%  ·  실험 {done}/{total} 완료")
+
+    # 3) 최하단: 대시보드로
+    st.divider()
     if st.button("대시보드로", key="run_to_dash"):
         st.session_state.view = "dashboard"
         st.rerun()
-
-    # 하단: 진행도 바(완수율)
-    st.divider()
-    st.progress(ratio, text=f"진행률 {pct}%  ·  실험 {done}/{total} 완료")
 
 
 def _render_report(h) -> None:

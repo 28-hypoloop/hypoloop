@@ -43,7 +43,7 @@ div.stButton > button[kind="secondary"] {
   background:#fff; color:#1f2430; border:1px solid #e3e6ea; border-radius:10px; }
 .hl-phase { font-weight:600; color:#4f6bed; margin:4px 0 10px; }
 .hl-console { background:#f6f7f9; border:1px solid #e3e6ea; border-radius:12px;
-  padding:14px; max-height:460px; overflow-y:auto; }
+  padding:14px; height:420px; overflow-y:auto; }
 .hl-line { display:flex; gap:10px; padding:5px 0; border-bottom:1px solid #edf0f3; font-size:14px; }
 .hl-tag { flex:0 0 40px; color:#6b7280; font-size:12px; padding-top:2px; }
 .hl-txt { color:#3b4252; }
