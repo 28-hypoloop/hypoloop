@@ -24,24 +24,43 @@ from src.api.base import HypoStore
 
 
 def _pid(s):
-    return s.list_projects()[0].project_id
+    return s.create_project("p").project_id
 
 
 def test_mockstore_satisfies_protocol():
     assert isinstance(MockStore(), HypoStore)
 
 
-def test_default_project_exists():
+def test_starts_empty():
     s = MockStore()
-    assert len(s.list_projects()) == 1
-    assert s.list_projects()[0].name == "주택 가격 예측 (House Prices)"
+    assert s.list_projects() == []
 
 
 def test_create_project():
     s = MockStore()
-    p = s.create_project("프로젝트 2")
-    assert p.name == "프로젝트 2"
-    assert len(s.list_projects()) == 2
+    p = s.create_project("프로젝트1")
+    assert p.name == "프로젝트1"
+    assert len(s.list_projects()) == 1
+
+
+def test_update_project_and_ready():
+    s = MockStore()
+    p = s.create_project("")
+    assert p.is_ready is False and p.is_empty is True
+    s.update_project(p.project_id, train_csv="a,b\n1,2", train_filename="train.csv")
+    assert s.get_project(p.project_id).is_ready is False   # train만 → 미완료
+    s.update_project(p.project_id, test_csv="a,b\n3,4", test_filename="test.csv")
+    assert s.get_project(p.project_id).is_ready is False   # train+test, 설명 없음
+    s.update_project(p.project_id, description="설명", desc_filename="d.txt")
+    assert s.get_project(p.project_id).is_ready is True    # 셋 다 → 완료
+    assert s.get_project(p.project_id).train_filename == "train.csv"
+    assert s.get_project(p.project_id).test_filename == "test.csv"
+
+
+def test_get_project_unknown_raises():
+    import pytest
+    with pytest.raises(KeyError):
+        MockStore().get_project("nope")
 
 
 def test_rename_project():

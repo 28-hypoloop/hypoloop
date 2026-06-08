@@ -9,6 +9,33 @@ from typing import List, Optional
 class Project:
     project_id: str
     name: str
+    train_csv: str = ""          # 학습 데이터(train.csv 텍스트)
+    train_filename: str = ""
+    test_csv: str = ""           # 실험 데이터(test.csv 텍스트)
+    test_filename: str = ""
+    description: str = ""         # 데이터 설명(txt 내용)
+    desc_filename: str = ""
+
+    @property
+    def has_train(self) -> bool:
+        return bool(self.train_csv)
+
+    @property
+    def has_test(self) -> bool:
+        return bool(self.test_csv)
+
+    @property
+    def has_desc(self) -> bool:
+        return bool(self.description)
+
+    @property
+    def is_empty(self) -> bool:
+        return not (self.has_train or self.has_test or self.has_desc)
+
+    @property
+    def is_ready(self) -> bool:
+        """학습(train) + 실험(test) + 설명(txt)이 모두 들어오면 준비 완료."""
+        return self.has_train and self.has_test and self.has_desc
 
 
 @dataclass

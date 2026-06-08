@@ -8,7 +8,8 @@ import streamlit as st
 from src.api.mock import MockStore
 from src import theme
 from src.components import sidebar
-from src.pages import dashboard, hypothesis_register, report
+from src.pages import (dashboard, hypothesis_register, report, project_setup,
+                       home)
 
 
 def get_store():
@@ -44,24 +45,31 @@ def main() -> None:
     theme.page_setup()
 
     if "view" not in st.session_state:
-        st.session_state.view = "dashboard"
+        st.session_state.view = "home"
         st.session_state.selected_hypothesis = None
 
     store = get_store()
-    # 기본 선택 프로젝트(첫 프로젝트). 프로젝트가 없으면 None.
-    if not st.session_state.get("selected_project"):
-        projects = store.list_projects()
-        st.session_state.selected_project = (
-            projects[0].project_id if projects else None)
 
     sidebar.render(store)
 
-    project_id = st.session_state.selected_project
-    if project_id is None:
-        st.info("왼쪽에서 새 프로젝트를 추가해 시작하세요.")
+    view = st.session_state.view
+
+    # 새 프로젝트 설정 화면(학습/실험 데이터 + 설명 업로드)
+    if view == "project_setup" and st.session_state.get("setup_project"):
+        project_setup.render(store, st.session_state.setup_project)
+        if _any_running(store):
+            _heartbeat()
         return
 
-    view = st.session_state.view
+    project_id = st.session_state.get("selected_project")
+
+    # 랜딩(프로젝트 선택) 화면
+    if view == "home" or project_id is None:
+        home.render(store)
+        if _any_running(store):
+            _heartbeat()
+        return
+
     if view == "register":
         hypothesis_register.render(store, project_id)
     elif view == "report":

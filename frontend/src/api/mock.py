@@ -22,11 +22,16 @@ class MockStore:
         self._base: Dict[str, float] = {}
         self._seq = 0
         self._threads: Dict[str, threading.Thread] = {}   # 백그라운드 실행
-        # 기본 데모 프로젝트 1개 — Kaggle House Prices 데이터셋 (이후 create_project로 추가)
-        self.create_project("주택 가격 예측 (House Prices)")
+        # 시작 시 프로젝트 없음 — 사용자가 [+ 새 프로젝트]로 직접 생성한다.
 
     def list_projects(self) -> List[Project]:
         return list(self._projects)
+
+    def get_project(self, project_id: str) -> Project:
+        for p in self._projects:
+            if p.project_id == project_id:
+                return p
+        raise KeyError(project_id)
 
     def create_project(self, name: str) -> Project:
         p = Project(project_id=str(uuid.uuid4()), name=name)
@@ -34,11 +39,17 @@ class MockStore:
         return p
 
     def rename_project(self, project_id: str, name: str) -> Project:
-        for p in self._projects:
-            if p.project_id == project_id:
-                p.name = name
-                return p
-        raise KeyError(project_id)
+        return self.update_project(project_id, name=name)
+
+    def update_project(self, project_id: str, **fields) -> Project:
+        """프로젝트 필드 부분 갱신(name/description/desc_filename/data_csv/data_filename)."""
+        p = self.get_project(project_id)
+        allowed = {"name", "description", "desc_filename",
+                   "train_csv", "train_filename", "test_csv", "test_filename"}
+        for k, v in fields.items():
+            if k in allowed and v is not None:
+                setattr(p, k, v)
+        return p
 
     def delete_project(self, project_id: str) -> None:
         self._projects = [p for p in self._projects
@@ -134,6 +145,23 @@ class MockStore:
             f"| {i} | {s} |" + ("  ← 최고" if i == best_i else "")
             for i, s in enumerate(h.score_history, start=1)
         )
+        try:
+            proj = self.get_project(h.project_id)
+        except KeyError:
+            proj = None
+        train_name = (proj.train_filename if proj and proj.train_filename
+                      else "train.csv")
+        test_name = (proj.test_filename if proj and proj.test_filename
+                     else "test.csv")
+        desc_snip = ""
+        if proj and proj.description:
+            desc_snip = proj.description.strip().splitlines()[0][:120]
+        data_lines = (
+            f"- 학습 데이터: {train_name}\n"
+            f"- 실험 데이터: {test_name}\n"
+            f"- 설명: {desc_snip or '프로젝트 설명(TXT) 참고'}\n"
+            f"- 전처리: 결측치 처리, 범주형 인코딩, 스케일링\n"
+        )
         h.report_md = (
             f"# 분석 보고서\n\n"
             f"이 보고서는 에이전트가 자동 생성한 실험 결과 요약입니다. "
@@ -144,12 +172,7 @@ class MockStore:
             f"하이퍼파라미터를 조정하며 평가 점수(0~1)를 측정했습니다.\n\n"
             f"## 가설\n\n> {h.content}\n\n"
             f"## 데이터 개요\n\n"
-            f"- 데이터셋: Ames Housing (Kaggle House Prices) — 미국 아이오와주 에임스 주택 거래\n"
-            f"- 타깃: SalePrice(주택 판매가) 예측 — 회귀 문제\n"
-            f"- 피처: 약 79개 (예: OverallQual, GrLivArea, GarageCars, "
-            f"TotalBsmtSF, YearBuilt, Neighborhood)\n"
-            f"- 평가 지표: RMSE (로그 변환된 판매가 기준)\n"
-            f"- 전처리: 결측치 처리, 범주형 인코딩, 스케일링 / 학습·검증 80:20\n\n"
+            f"{data_lines}\n"
             f"## 실험 설정\n\n"
             f"- 최대 실험 횟수: {h.max_experiments}\n"
             f"- 병렬 횟수: {h.parallel_count}\n"
