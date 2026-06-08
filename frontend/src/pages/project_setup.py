@@ -11,9 +11,26 @@ import streamlit as st
 
 from src.api.base import HypoStore
 
+# 확성기 아이콘(인라인 SVG, 이모지 미사용)
+_MEGAPHONE = (
+    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+    'stroke="#4f6bed" stroke-width="2" stroke-linecap="round" '
+    'stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"></path>'
+    '<path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>')
+
 
 def _read_text(uploaded) -> str:
     return uploaded.getvalue().decode("utf-8", "ignore")
+
+
+def _show_popup(nonce: int, message: str) -> None:
+    """상단 팝업 공지 — CSS 애니메이션(내려옴→유지→올라감). nonce를 컨테이너 key로 줘
+    누를 때마다 새로 마운트되어 한 번씩 재생된다."""
+    with st.container(key=f"hltoast_{nonce}"):
+        st.markdown(
+            f'<div class="hl-toast-wrap"><div class="hl-toast2">{_MEGAPHONE}'
+            f'<span>{message}</span></div></div>',
+            unsafe_allow_html=True)
 
 
 def render(store: HypoStore, project_id: str) -> None:
@@ -22,10 +39,9 @@ def render(store: HypoStore, project_id: str) -> None:
     idx = (ids.index(project_id) + 1) if project_id in ids else len(ids) + 1
     default_name = f"프로젝트{idx}"
 
-    # 상단 팝업 공지(완료 검증 실패 시). 업로드 안 된 칸만 동적으로 안내.
-    # nonce가 바뀔 때만 애니메이션 재생(여러 번 눌러도 하나가 다시 내려옴).
+    # 상단 팝업 공지 — '완료(미입력)'를 눌렀을 때만(show_notice). 진입 시엔 안 뜸.
     nonce = st.session_state.get("setup_notice_n", 0)
-    if nonce:
+    if st.session_state.get("show_notice"):
         missing = []
         if not p.has_train:
             missing.append("학습 데이터")
@@ -34,18 +50,7 @@ def render(store: HypoStore, project_id: str) -> None:
         if not p.has_desc:
             missing.append("설명 파일")
         need = ", ".join(missing) if missing else "프로젝트 데이터"
-        # 확성기 아이콘(인라인 SVG, 이모지 미사용)
-        megaphone = (
-            '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" '
-            'stroke="#4f6bed" stroke-width="2" stroke-linecap="round" '
-            'stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/>'
-            '<path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>')
-        # nonce를 컨테이너 key로 → 누를 때마다 새 요소로 마운트되어 애니메이션이 재생됨
-        with st.container(key=f"hltoast_{nonce}"):
-            st.markdown(
-                f'<div class="hl-toast-wrap"><div class="hl-toast2">{megaphone}'
-                f'<span>{need}을(를) 업로드해주세요</span></div></div>',
-                unsafe_allow_html=True)
+        _show_popup(nonce, f"{need}을(를) 업로드해주세요")
 
     st.subheader("새 프로젝트")
     st.caption("학습 데이터(train.csv) · 실험 데이터(test.csv) · 데이터 설명(TXT)을 올려 "
@@ -99,19 +104,19 @@ def render(store: HypoStore, project_id: str) -> None:
     if c1.button("완료", type="primary", use_container_width=True):
         store.update_project(project_id, name=final_name)
         if store.get_project(project_id).is_ready:
-            st.session_state.setup_notice_n = 0
             st.session_state.setup_project = None
             st.session_state.selected_project = project_id
             st.session_state.expanded_project = None   # 완료해도 가설은 펼치지 않음
             st.session_state.view = "dashboard"
         else:
-            st.session_state.setup_notice_n = nonce + 1  # 공지 다시 진하게
+            # 미완료: 경고 팝업 표시(컨테이너 key용으로 nonce 단조 증가)
+            st.session_state.setup_notice_n = nonce + 1
+            st.session_state.show_notice = True
         st.rerun()
 
     # 저장: 미완성이라도 저장하고 "프로젝트를 선택해주세요" 화면으로(흰색).
     if c2.button("저장", type="secondary", use_container_width=True):
         store.update_project(project_id, name=final_name)
-        st.session_state.setup_notice_n = 0
         st.session_state.setup_project = None
         st.session_state.selected_project = None
         st.session_state.view = "home"
@@ -120,7 +125,6 @@ def render(store: HypoStore, project_id: str) -> None:
     # 취소: 아무것도 안 넣었으면 정리하고 나간다.
     if c3.button("취소", type="tertiary", use_container_width=True):
         leftover = store.get_project(project_id)
-        st.session_state.setup_notice_n = 0
         st.session_state.setup_project = None
         if leftover.is_empty:
             store.delete_project(project_id)

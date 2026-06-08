@@ -61,22 +61,22 @@ div.stButton > button[kind="secondary"] {
 .hl-toast-wrap { position:fixed; top:0; left:0; right:0; z-index:99999;
   display:flex; justify-content:center; pointer-events:none; }
 .hl-toast2 { position:relative; top:-160px; opacity:0;
-  display:flex; align-items:center; justify-content:center; gap:12px;
-  background:#ffffff; border:2px solid #4f6bed; color:#1f2430;
-  padding:18px 34px; border-radius:16px; box-shadow:0 14px 36px rgba(0,0,0,0.22);
-  font-size:1.5rem; font-weight:700; line-height:1.35; text-align:center;
-  animation:hl-drop 3.8s ease-in-out forwards; }
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  background:#ffffff; border:1.5px solid #4f6bed; color:#1f2430;
+  padding:13px 44px; border-radius:12px; box-shadow:0 8px 22px rgba(0,0,0,0.16);
+  font-size:1.05rem; font-weight:700; line-height:1.35; text-align:center;
+  white-space:nowrap; animation:hl-drop 2.3s ease-in-out forwards; }
 .hl-toast2 svg { flex:0 0 auto; }
 @keyframes hl-drop {
   0%   { top:-160px; opacity:0; }   /* 화면 위(숨김) */
-  9%   { top:72px;   opacity:1; }   /* 내려옴(상단 툴바 아래로) */
-  90%  { top:72px;   opacity:1; }   /* 약 3초 유지 */
-  100% { top:-160px; opacity:0; }   /* 다시 올라감 */
+  18%  { top:72px;   opacity:1; }   /* 내려옴(상단 툴바 아래로, ~0.4s) */
+  82%  { top:72px;   opacity:1; }   /* 약 1.5초 유지 */
+  100% { top:-160px; opacity:0; }   /* 다시 올라감(~0.4s) */
 }
 /* 랜딩(프로젝트 선택) 페이지 — 상하/좌우 중앙 */
 .hl-home { display:flex; flex-direction:column; justify-content:center;
   align-items:center; text-align:center; color:#6b7280; min-height:74vh; }
-.hl-home .t { font-size:1.25rem; font-weight:700; color:#1f2430; margin-bottom:6px; }
+.hl-home .t { font-size:2rem; font-weight:700; color:#1f2430; margin-bottom:10px; }
 .hl-home .s { font-size:0.95rem; }
 
 /* ===== 사이드바 간격: 프로젝트끼리는 기본(넓게), 프로젝트-가설은 촘촘하게 ===== */

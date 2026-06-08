@@ -56,7 +56,7 @@ def _open_setup(project_id: str) -> None:
     st.session_state.selected_project = project_id
     st.session_state.expanded_project = None
     st.session_state.selected_hypothesis = None
-    st.session_state.setup_notice_n = 0       # 공지 초기화(재진입 시 안 뜨게)
+    st.session_state.show_notice = False      # 진입 시 경고 안 뜨게
     st.session_state.view = "project_setup"
 
 
