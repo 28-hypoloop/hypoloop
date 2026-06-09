@@ -3,7 +3,12 @@ from pathlib import Path
 
 import yaml
 
-from app.core.path_utils import ensure_dir, get_hypothesis_yml_path, get_status_yml_path
+from app.core.path_utils import (
+    ensure_dir,
+    get_experiment_yml_path,
+    get_hypothesis_yml_path,
+    get_status_yml_path,
+)
 
 
 def generate_hypothesis_yml(
@@ -58,6 +63,34 @@ def generate_status_yml(
     status_path = get_status_yml_path(project_id, hypothesis_id, exp_id)
     _write_yml(status_path, data)
     return status_path
+
+
+def generate_experiment_yml(
+    *,
+    project_id: str,
+    hypothesis_id: str,
+    exp_id: str,
+) -> Path:
+    """
+    새로운 실험을 위한 초기 exp_id.yml 스켈레톤(뼈대) 파일을 생성합니다.
+    백엔드는 실험 ID 식별자만 채워넣고, 에이전트가 실험 종료 후 design과 score를 채워넣게 됩니다.
+    """
+    data = {
+        "hypothesis_id": hypothesis_id,
+        "exp_id": exp_id,
+        "design": {
+            "experiment_text": None,
+            "model": None,
+            "features": [],
+            "hyperparameters": {},
+            # 데모 시연 및 에이전트 평가 통일성을 위해 평가 산식을 "R2 Score"로 고정 주입합니다.
+            "formula": "R2 Score",
+        },
+        "score": None,
+    }
+    exp_yml_path = get_experiment_yml_path(project_id, hypothesis_id, exp_id)
+    _write_yml(exp_yml_path, data)
+    return exp_yml_path
 
 
 def set_hypothesis_ready(yml_path: Path) -> None:

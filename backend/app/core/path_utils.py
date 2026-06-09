@@ -51,6 +51,16 @@ def get_reports_dir(project_id: str) -> Path:
     return get_project_dir(project_id) / "reports"
 
 
+def get_datasets_dir(project_id: str) -> Path:
+    """Return the datasets directory for a project."""
+    return get_project_dir(project_id) / "datasets"
+
+
+def get_dataset_dir(project_id: str, card_id: str) -> Path:
+    """Return the directory for a single data card's files."""
+    return get_datasets_dir(project_id) / card_id
+
+
 def ensure_dir(path: Path) -> Path:
     """Create the directory (and parents) if it does not exist. Returns the path."""
     path.mkdir(parents=True, exist_ok=True)

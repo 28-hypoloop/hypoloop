@@ -2,7 +2,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Hypothesis
+from app.db.models import DataCard, Hypothesis
 
 
 def create_hypothesis(
@@ -38,3 +38,56 @@ def get_hypothesis(db: Session, hypothesis_id: str) -> Optional[Hypothesis]:
 def list_hypotheses(db: Session, project_id: str) -> list[Hypothesis]:
     """Return all hypotheses belonging to a project."""
     return db.query(Hypothesis).filter(Hypothesis.project_id == project_id).all()
+
+
+def delete_hypothesis(db: Session, hypothesis_id: str) -> bool:
+    """Delete a hypothesis record by ID. Returns True if a row was removed."""
+    row = db.get(Hypothesis, hypothesis_id)
+    if row is None:
+        return False
+    db.delete(row)
+    db.commit()
+    return True
+
+
+def create_data_card(
+    db: Session,
+    *,
+    card_id: str,
+    project_id: str,
+    name: str,
+    original_filename: str,
+    file_path: str,
+) -> DataCard:
+    """Insert a new data card record and return it."""
+    row = DataCard(
+        card_id=card_id,
+        project_id=project_id,
+        name=name,
+        original_filename=original_filename,
+        file_path=file_path,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def get_data_card(db: Session, card_id: str) -> Optional[DataCard]:
+    """Return a data card by ID, or None if not found."""
+    return db.get(DataCard, card_id)
+
+
+def list_data_cards(db: Session, project_id: str) -> list[DataCard]:
+    """Return all data cards belonging to a project."""
+    return db.query(DataCard).filter(DataCard.project_id == project_id).all()
+
+
+def delete_data_card(db: Session, card_id: str) -> bool:
+    """Delete a data card record by ID. Returns True if a row was removed."""
+    row = db.get(DataCard, card_id)
+    if row is None:
+        return False
+    db.delete(row)
+    db.commit()
+    return True
