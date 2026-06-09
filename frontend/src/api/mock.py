@@ -1,12 +1,15 @@
 """세션 보관 + 에이전트 시뮬레이션 MockStore. 순수 Python(Streamlit 비의존)."""
 from __future__ import annotations
 
+import os
+import tempfile
 import threading
 import time
 import uuid
 from typing import Dict, Iterator, List, Tuple
 
 from src.api.types import Project, Hypothesis, AgentEvent
+from src.api._sample_charts import make_report_images
 
 PHASES = ["계획 수립", "EDA", "실험 설계", "학습 코드 생성", "학습/평가", "보고서 작성"]
 _STEP_DELAY = 1.2   # 실제 에이전트처럼 시간이 걸리도록(백그라운드 실행에서 노란 '동작중' 표시)
@@ -22,6 +25,8 @@ class MockStore:
         self._base: Dict[str, float] = {}
         self._seq = 0
         self._threads: Dict[str, threading.Thread] = {}   # 백그라운드 실행
+        # 보고서/이미지를 저장할 데이터 루트(에이전트가 디스크에 저장하는 구조 모사)
+        self._data_root = tempfile.mkdtemp(prefix="hypoloop_data_")
         # 시작 시 프로젝트 없음 — 사용자가 [+ 새 프로젝트]로 직접 생성한다.
 
     def list_projects(self) -> List[Project]:
@@ -162,6 +167,26 @@ class MockStore:
             f"- 설명: {desc_snip or '프로젝트 설명(TXT) 참고'}\n"
             f"- 전처리: 결측치 처리, 범주형 인코딩, 스케일링\n"
         )
+        # 에이전트 저장 구조: {가설번호}/img/{이미지}. report_dir = 가설 디렉토리.
+        report_dir = os.path.join(self._data_root, "projects", h.project_id,
+                                  "hypotheses", h.hypothesis_id)
+        images = make_report_images(seed=self._seq)
+        eda_section = ""
+        if images:
+            for rel, raw in images.items():
+                fp = os.path.join(report_dir, rel)
+                os.makedirs(os.path.dirname(fp), exist_ok=True)
+                with open(fp, "wb") as f:
+                    f.write(raw)
+            eda_section = (
+                "## 탐색적 데이터 분석(EDA)\n\n"
+                "타깃(SalePrice)은 우편향이 강해 `log1p` 변환으로 정규분포에 가깝게 보정했습니다.\n\n"
+                "![Target Distribution](img/target_distribution.png)\n\n"
+                "수치형 피처의 왜도를 계산해 왜도가 큰 피처를 확인했습니다.\n\n"
+                "![Top Skewed Features](img/skewed_features.png)\n\n"
+                "가장 왜도가 큰 피처에 로그 변환을 적용한 효과 예시입니다.\n\n"
+                "![Example Feature Transformation](img/example_feature_transformation.png)\n\n"
+            )
         h.report_md = (
             f"# 분석 보고서\n\n"
             f"이 보고서는 에이전트가 자동 생성한 실험 결과 요약입니다. "
@@ -173,6 +198,7 @@ class MockStore:
             f"## 가설\n\n> {h.content}\n\n"
             f"## 데이터 개요\n\n"
             f"{data_lines}\n"
+            f"{eda_section}"
             f"## 실험 설정\n\n"
             f"- 최대 실험 횟수: {h.max_experiments}\n"
             f"- 병렬 횟수: {h.parallel_count}\n"
@@ -190,6 +216,13 @@ class MockStore:
             f"가설은 데이터상 유의미하게 지지되었습니다. 향후에는 더 다양한 피처 조합과 "
             f"교차검증을 통해 일반화 성능을 추가로 검증할 필요가 있습니다.\n"
         )
+        # report.md도 디렉토리에 저장하고 경로를 가설에 기록(프론트가 경로로 병합)
+        if images:
+            os.makedirs(report_dir, exist_ok=True)
+            with open(os.path.join(report_dir, "report.md"), "w",
+                      encoding="utf-8") as f:
+                f.write(h.report_md)
+            h.report_dir = report_dir
         h.status = "done"
         yield AgentEvent("보고서 작성", "log", "보고서 작성 완료")
 

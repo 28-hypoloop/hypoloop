@@ -50,6 +50,9 @@ class Hypothesis:
     score_history: List[float] = field(default_factory=list)
     analysis_text: str = ""
     report_md: str = ""
+    # 보고서(report.md)와 이미지(img/)가 저장된 디렉토리 경로.
+    # report_md의 상대경로 이미지(![](img/x.png))를 이 경로 기준으로 프론트가 읽어 병합한다.
+    report_dir: str = ""
     events: List["AgentEvent"] = field(default_factory=list)  # 라이브 진행 로그
 
 

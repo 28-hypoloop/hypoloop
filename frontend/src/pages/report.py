@@ -46,8 +46,9 @@ def _render_report(h) -> None:
                            file_name=fname, mime="text/markdown",
                            use_container_width=True)
 
-    # 백엔드가 주는 보고서(.md) 미리보기: 목차 + 하단 스크롤 진행바
-    report_viewer.render(h.report_md or "")
+    # 보고서(.md) 미리보기: 목차 + 스크롤 진행바 + 경로의 img/ 이미지 병합
+    report_viewer.render(h.report_md or "",
+                         base_dir=getattr(h, "report_dir", ""))
 
     if st.button("대시보드로", key="report_to_dash"):
         st.session_state.view = "dashboard"
