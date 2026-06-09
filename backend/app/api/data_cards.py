@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.path_utils import (
     DATA_ROOT,
     ensure_dir,
-    get_dataset_dir,
+    get_data_card_file_path,
     get_project_dir,
 )
 from app.db import crud
@@ -47,6 +47,7 @@ async def upload_data_card(
 ) -> DataCardResponse:
     """Upload a dataset file and register it as a data card.
     role: "train" | "test" | "description" — if set, replaces any existing card with that role.
+    File is stored flat next to project.db as {project_id}_{card_id}{ext}.
     """
     if not get_project_dir(project_id).exists():
         raise HTTPException(status_code=404, detail="Project not found")
@@ -55,14 +56,16 @@ async def upload_data_card(
     if role:
         existing = crud.get_data_card_by_role(db, project_id, role)
         if existing:
-            old_dir = get_dataset_dir(project_id, existing.card_id)
-            if old_dir.exists():
-                shutil.rmtree(old_dir)
+            old_path = get_data_card_file_path(
+                project_id, existing.card_id, existing.original_filename
+            )
+            if old_path.exists():
+                old_path.unlink()
             crud.delete_data_cards_by_role(db, project_id, role)
 
     card_id = str(uuid.uuid4())
-    dest_dir = ensure_dir(get_dataset_dir(project_id, card_id))
-    dest_path = dest_dir / file.filename
+    dest_path = get_data_card_file_path(project_id, card_id, file.filename)
+    ensure_dir(dest_path.parent)
 
     with dest_path.open("wb") as f:
         shutil.copyfileobj(file.file, f)
@@ -98,13 +101,13 @@ def delete_data_card(
     card_id: str,
     db: Session = Depends(_project_db),
 ) -> None:
-    """Delete a data card record and its uploaded file directory."""
+    """Delete a data card record and its file."""
     row = crud.get_data_card(db, card_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Data card not found")
-    dataset_dir = get_dataset_dir(project_id, card_id)
-    if dataset_dir.exists():
-        shutil.rmtree(dataset_dir)
+    dest_path = get_data_card_file_path(project_id, card_id, row.original_filename)
+    if dest_path.exists():
+        dest_path.unlink()
     crud.delete_data_card(db, card_id)
 
 

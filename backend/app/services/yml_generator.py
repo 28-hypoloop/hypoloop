@@ -19,6 +19,7 @@ def generate_hypothesis_yml(
     content: str,
     max_experiments: int,
     parallel_count: int,
+    data_card_id: str | None = None,
 ) -> Path:
     """
     Write the hypothesis YML file (u_id_hypothesis_id.yml) to the hypothesis directory.
@@ -32,6 +33,7 @@ def generate_hypothesis_yml(
         "content": content,
         "max_experiments": max_experiments,
         "parallel_count": parallel_count,
+        "data_card_id": data_card_id,
         "ready": False,
     }
     yml_path = get_hypothesis_yml_path(project_id, u_id, hypothesis_id)

@@ -56,14 +56,13 @@ def get_reports_dir(project_id: str) -> Path:
     return get_project_dir(project_id) / "reports"
 
 
-def get_datasets_dir(project_id: str) -> Path:
-    """Return the datasets directory for a project."""
-    return get_project_dir(project_id) / "datasets"
-
-
-def get_dataset_dir(project_id: str, card_id: str) -> Path:
-    """Return the directory for a single data card's files."""
-    return get_datasets_dir(project_id) / card_id
+def get_data_card_file_path(project_id: str, card_id: str, original_filename: str) -> Path:
+    """Return the storage path for a data card file (flat, next to project.db).
+    CSV → data.csv / TXT → data_card.txt
+    """
+    ext = Path(original_filename).suffix.lower()
+    filename = "data_card.txt" if ext == ".txt" else "data.csv"
+    return get_project_dir(project_id) / filename
 
 
 def ensure_dir(path: Path) -> Path:
