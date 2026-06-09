@@ -28,4 +28,5 @@ class DataCard(Base):
     name = Column(String, nullable=False)
     original_filename = Column(String, nullable=False)
     file_path = Column(String, nullable=False)  # DATA_ROOT 기준 상대경로
+    role = Column(String, nullable=True)  # "train" | "test" | "description" | null
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

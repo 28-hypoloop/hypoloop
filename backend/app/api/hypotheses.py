@@ -1,29 +1,28 @@
+import shutil
 import uuid
-from typing import Generator
+from typing import Generator, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.core.path_utils import get_hypothesis_dir
 from app.db import crud
 from app.db.session import get_db
 from app.services import trigger, yml_generator
-from app.services.report_builder import build_report
+from app.services.report_builder import build_report, get_best_score, get_hypothesis_status
 
 router = APIRouter(tags=["hypotheses"])
 
+_DEFAULT_U_ID = "default_user"
 
-# --- shared DB dependency ---
 
 def _project_db(project_id: str) -> Generator[Session, None, None]:
-    """Resolve a DB session from the project_id path/query parameter."""
     yield from get_db(project_id)
 
 
-# --- schemas ---
-
 class HypothesisCreate(BaseModel):
-    u_id: str
+    u_id: Optional[str] = None  # 미입력 시 default_user
     content: str
     max_experiments: int = Field(gt=0)
     parallel_count: int = Field(gt=0)
@@ -39,7 +38,16 @@ class HypothesisResponse(BaseModel):
     yml_path: str
 
 
-# --- endpoints ---
+class HypothesisListItem(BaseModel):
+    hypothesis_id: str
+    project_id: str
+    u_id: str
+    content: str
+    max_experiments: int
+    parallel_count: int
+    status: str
+    best_score: Optional[float]
+
 
 @router.post(
     "/projects/{project_id}/hypotheses",
@@ -52,20 +60,21 @@ def create_hypothesis(
     db: Session = Depends(_project_db),
 ) -> HypothesisResponse:
     """Register a hypothesis in DB and generate its u_id_hypothesis_id.yml."""
+    u_id = (body.u_id or "").strip() or _DEFAULT_U_ID
     hypothesis_id = str(uuid.uuid4())
 
     crud.create_hypothesis(
         db,
         hypothesis_id=hypothesis_id,
         project_id=project_id,
-        u_id=body.u_id,
+        u_id=u_id,
         content=body.content,
         max_experiments=body.max_experiments,
         parallel_count=body.parallel_count,
     )
 
     yml_path = yml_generator.generate_hypothesis_yml(
-        u_id=body.u_id,
+        u_id=u_id,
         project_id=project_id,
         hypothesis_id=hypothesis_id,
         content=body.content,
@@ -76,7 +85,7 @@ def create_hypothesis(
     return HypothesisResponse(
         hypothesis_id=hypothesis_id,
         project_id=project_id,
-        u_id=body.u_id,
+        u_id=u_id,
         content=body.content,
         max_experiments=body.max_experiments,
         parallel_count=body.parallel_count,
@@ -84,16 +93,52 @@ def create_hypothesis(
     )
 
 
+@router.get(
+    "/projects/{project_id}/hypotheses",
+    response_model=list[HypothesisListItem],
+)
+def list_hypotheses(
+    project_id: str,
+    db: Session = Depends(_project_db),
+) -> list[HypothesisListItem]:
+    """List a project's hypotheses enriched with derived status and best score."""
+    rows = crud.list_hypotheses(db, project_id)
+    return [
+        HypothesisListItem(
+            hypothesis_id=row.hypothesis_id,
+            project_id=row.project_id,
+            u_id=row.u_id,
+            content=row.content,
+            max_experiments=row.max_experiments,
+            parallel_count=row.parallel_count,
+            status=get_hypothesis_status(project_id, row.hypothesis_id),
+            best_score=get_best_score(project_id, row.hypothesis_id),
+        )
+        for row in rows
+    ]
+
+
+@router.delete("/hypotheses/{hypothesis_id}", status_code=204)
+def delete_hypothesis(
+    hypothesis_id: str,
+    project_id: str,
+    db: Session = Depends(_project_db),
+) -> None:
+    """Delete a hypothesis's DB record and its directory (YML + experiments)."""
+    if not crud.delete_hypothesis(db, hypothesis_id):
+        raise HTTPException(status_code=404, detail="Hypothesis not found")
+    hyp_dir = get_hypothesis_dir(project_id, hypothesis_id)
+    if hyp_dir.exists():
+        shutil.rmtree(hyp_dir)
+
+
 @router.post("/hypotheses/{hypothesis_id}/ready", status_code=200)
 def trigger_ready(
     hypothesis_id: str,
     project_id: str,
-    u_id: str,
+    u_id: str = _DEFAULT_U_ID,
 ) -> dict:
-    """
-    Set ready=true in the hypothesis YML and notify the agent.
-    project_id and u_id are required query parameters to locate the YML file.
-    """
+    """Set ready=true in the hypothesis YML and notify the agent."""
     try:
         yml_path = trigger.set_ready(
             project_id=project_id,
@@ -102,7 +147,6 @@ def trigger_ready(
         )
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Hypothesis YML not found")
-
     return {"hypothesis_id": hypothesis_id, "ready": True, "yml_path": str(yml_path)}
 
 
@@ -112,10 +156,7 @@ def get_report(
     project_id: str,
     db: Session = Depends(_project_db),
 ) -> dict:
-    """
-    Read all status.yml files under the hypothesis's experiments directory and
-    return best_score, score_history, and analysis_texts.
-    """
+    """Aggregate all experiment status.yml files and return report data."""
     if crud.get_hypothesis(db, hypothesis_id) is None:
         raise HTTPException(status_code=404, detail="Hypothesis not found")
     return build_report(project_id, hypothesis_id)

@@ -11,6 +11,11 @@ def get_project_dir(project_id: str) -> Path:
     return DATA_ROOT / "projects" / project_id
 
 
+def get_project_meta_path(project_id: str) -> Path:
+    """Return the path for the project meta YAML file (name, created_at)."""
+    return get_project_dir(project_id) / "meta.yml"
+
+
 def get_project_db_path(project_id: str) -> Path:
     """Return the SQLite DB file path for a project."""
     return get_project_dir(project_id) / "project.db"

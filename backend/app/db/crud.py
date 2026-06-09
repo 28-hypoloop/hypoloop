@@ -58,6 +58,7 @@ def create_data_card(
     name: str,
     original_filename: str,
     file_path: str,
+    role: Optional[str] = None,
 ) -> DataCard:
     """Insert a new data card record and return it."""
     row = DataCard(
@@ -66,6 +67,7 @@ def create_data_card(
         name=name,
         original_filename=original_filename,
         file_path=file_path,
+        role=role,
     )
     db.add(row)
     db.commit()
@@ -91,3 +93,25 @@ def delete_data_card(db: Session, card_id: str) -> bool:
     db.delete(row)
     db.commit()
     return True
+
+
+def get_data_card_by_role(db: Session, project_id: str, role: str) -> Optional[DataCard]:
+    """Return the data card with the given role for a project, or None."""
+    return (
+        db.query(DataCard)
+        .filter(DataCard.project_id == project_id, DataCard.role == role)
+        .first()
+    )
+
+
+def delete_data_cards_by_role(db: Session, project_id: str, role: str) -> int:
+    """Delete all data cards with the given role for a project. Returns count deleted."""
+    rows = (
+        db.query(DataCard)
+        .filter(DataCard.project_id == project_id, DataCard.role == role)
+        .all()
+    )
+    for row in rows:
+        db.delete(row)
+    db.commit()
+    return len(rows)

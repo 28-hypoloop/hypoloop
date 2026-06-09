@@ -1,7 +1,7 @@
 import shutil
 import uuid
 from datetime import datetime
-from typing import Generator
+from typing import Generator, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -20,7 +20,6 @@ router = APIRouter(prefix="/projects", tags=["data-cards"])
 
 
 def _project_db(project_id: str) -> Generator[Session, None, None]:
-    """Resolve a DB session from the project_id path parameter."""
     yield from get_db(project_id)
 
 
@@ -30,6 +29,7 @@ class DataCardResponse(BaseModel):
     name: str
     original_filename: str
     file_path: str
+    role: Optional[str]
     created_at: datetime
 
 
@@ -42,11 +42,23 @@ async def upload_data_card(
     project_id: str,
     file: UploadFile,
     name: str = Form(...),
+    role: Optional[str] = Form(None),
     db: Session = Depends(_project_db),
 ) -> DataCardResponse:
-    """Upload a dataset file and register it as a data card for the project."""
+    """Upload a dataset file and register it as a data card.
+    role: "train" | "test" | "description" — if set, replaces any existing card with that role.
+    """
     if not get_project_dir(project_id).exists():
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # 같은 role의 기존 카드 파일 삭제 후 교체
+    if role:
+        existing = crud.get_data_card_by_role(db, project_id, role)
+        if existing:
+            old_dir = get_dataset_dir(project_id, existing.card_id)
+            if old_dir.exists():
+                shutil.rmtree(old_dir)
+            crud.delete_data_cards_by_role(db, project_id, role)
 
     card_id = str(uuid.uuid4())
     dest_dir = ensure_dir(get_dataset_dir(project_id, card_id))
@@ -64,15 +76,9 @@ async def upload_data_card(
         name=name,
         original_filename=file.filename,
         file_path=relative_path,
+        role=role,
     )
-    return DataCardResponse(
-        card_id=row.card_id,
-        project_id=row.project_id,
-        name=row.name,
-        original_filename=row.original_filename,
-        file_path=row.file_path,
-        created_at=row.created_at,
-    )
+    return _to_response(row)
 
 
 @router.get("/{project_id}/data-cards", response_model=list[DataCardResponse])
@@ -83,19 +89,7 @@ def list_data_cards(
     """List all data cards registered for a project."""
     if not get_project_dir(project_id).exists():
         raise HTTPException(status_code=404, detail="Project not found")
-
-    rows = crud.list_data_cards(db, project_id)
-    return [
-        DataCardResponse(
-            card_id=r.card_id,
-            project_id=r.project_id,
-            name=r.name,
-            original_filename=r.original_filename,
-            file_path=r.file_path,
-            created_at=r.created_at,
-        )
-        for r in rows
-    ]
+    return [_to_response(r) for r in crud.list_data_cards(db, project_id)]
 
 
 @router.delete("/{project_id}/data-cards/{card_id}", status_code=204)
@@ -108,9 +102,19 @@ def delete_data_card(
     row = crud.get_data_card(db, card_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Data card not found")
-
     dataset_dir = get_dataset_dir(project_id, card_id)
     if dataset_dir.exists():
         shutil.rmtree(dataset_dir)
-
     crud.delete_data_card(db, card_id)
+
+
+def _to_response(row) -> DataCardResponse:
+    return DataCardResponse(
+        card_id=row.card_id,
+        project_id=row.project_id,
+        name=row.name,
+        original_filename=row.original_filename,
+        file_path=row.file_path,
+        role=row.role,
+        created_at=row.created_at,
+    )
