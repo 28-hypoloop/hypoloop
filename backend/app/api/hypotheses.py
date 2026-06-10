@@ -63,10 +63,6 @@ def create_hypothesis(
     u_id = (body.u_id or "").strip() or _DEFAULT_U_ID
     hypothesis_id = str(uuid.uuid4())
 
-    # 프로젝트의 데이터카드 자동 조회 (첫 번째 카드 사용)
-    cards = crud.list_data_cards(db, project_id)
-    data_card_id = cards[0].card_id if cards else None
-
     crud.create_hypothesis(
         db,
         hypothesis_id=hypothesis_id,
@@ -84,7 +80,6 @@ def create_hypothesis(
         content=body.content,
         max_experiments=body.max_experiments,
         parallel_count=body.parallel_count,
-        data_card_id=data_card_id,
     )
 
     return HypothesisResponse(
